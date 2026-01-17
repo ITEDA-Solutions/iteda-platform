@@ -20,7 +20,7 @@ const navigationItems = [
   { title: "Dryers", url: "/dashboard/dryers", icon: Wind },
   { title: "Alerts", url: "/dashboard/alerts", icon: AlertTriangle },
   { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
-  { title: "Users", url: "/dashboard/users", icon: Users },
+  { title: "Staff", url: "/dashboard/staff", icon: Users },
   { title: "Presets", url: "/dashboard/presets", icon: Settings },
 ];
 

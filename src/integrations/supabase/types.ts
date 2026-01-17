@@ -80,7 +80,7 @@ export type Database = {
           },
         ]
       }
-      dryer_owners: {
+      farmers: {
         Row: {
           address: string | null
           created_at: string
@@ -213,7 +213,7 @@ export type Database = {
             foreignKeyName: "dryers_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
-            referencedRelation: "dryer_owners"
+            referencedRelation: "farmers"
             referencedColumns: ["id"]
           },
           {

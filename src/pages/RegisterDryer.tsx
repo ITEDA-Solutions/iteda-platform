@@ -55,7 +55,7 @@ const formSchema = z.object({
   locationLongitude: z.string().optional(),
   locationAddress: z.string().min(1, "Location address is required"),
   regionId: z.string().min(1, "Region is required"),
-  ownerId: z.string().optional(),
+  farmerId: z.string().optional(),
   numTempSensors: z.number().min(1).max(10),
   numHumiditySensors: z.number().min(1).max(10),
   numFans: z.number().min(1).max(5),
@@ -68,10 +68,10 @@ const formSchema = z.object({
 const RegisterDryer = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [regions, setRegions] = useState<any[]>([]);
-  const [owners, setOwners] = useState<any[]>([]);
+  const [farmers, setFarmers] = useState<any[]>([]);
   const [presets, setPresets] = useState<any[]>([]);
-  const [showOwnerDialog, setShowOwnerDialog] = useState(false);
-  const [newOwner, setNewOwner] = useState({
+  const [showFarmerDialog, setShowFarmerDialog] = useState(false);
+  const [newFarmer, setNewFarmer] = useState({
     name: "",
     phone: "",
     email: "",
@@ -101,9 +101,9 @@ const RegisterDryer = () => {
   const fetchFormData = async () => {
     try {
       const [regionsRes, ownersRes, presetsRes] = await Promise.all([
-        supabase.from("regions").select("*").order("name"),
-        supabase.from("dryer_owners").select("*").order("name"),
-        supabase.from("presets").select("*").eq("is_active", true).order("preset_id"),
+        supabase.from("regions").select("*").order("name").execute(),
+        supabase.from("farmers").select("*").order("name").execute(),
+        supabase.from("presets").select("*").eq("is_active", true).order("preset_id").execute(),
       ]);
 
       if (regionsRes.error) throw regionsRes.error;
@@ -111,12 +111,12 @@ const RegisterDryer = () => {
       if (presetsRes.error) throw presetsRes.error;
 
       setRegions(regionsRes.data || []);
-      setOwners(ownersRes.data || []);
+      setFarmers(ownersRes.data || []);
       setPresets(presetsRes.data || []);
     } catch (error: any) {
       toast({
         title: "Error loading form data",
-        description: error.message,
+        description: (error as any).message,
         variant: "destructive",
       });
     }
@@ -129,7 +129,8 @@ const RegisterDryer = () => {
       .select("dryer_id")
       .like("dryer_id", `DRY-${year}-%`)
       .order("dryer_id", { ascending: false })
-      .limit(1);
+      .limit(1)
+      .execute();
 
     if (error) {
       console.error("Error generating dryer ID:", error);
@@ -146,11 +147,11 @@ const RegisterDryer = () => {
     return `DRY-${year}-${newNumber}`;
   };
 
-  const handleCreateOwner = async () => {
-    if (!newOwner.name) {
+  const handleCreateFarmer = async () => {
+    if (!newFarmer.name) {
       toast({
         title: "Error",
-        description: "Owner name is required",
+        description: "Farmer name is required",
         variant: "destructive",
       });
       return;
@@ -158,32 +159,33 @@ const RegisterDryer = () => {
 
     try {
       const { data, error } = await supabase
-        .from("dryer_owners")
+        .from("farmers")
         .insert({
-          name: newOwner.name,
-          phone: newOwner.phone || null,
-          email: newOwner.email || null,
-          address: newOwner.address || null,
-          farm_business_name: newOwner.farmName || null,
-          id_number: newOwner.idNumber || null,
+          name: newFarmer.name,
+          phone: newFarmer.phone || null,
+          email: newFarmer.email || null,
+          address: newFarmer.address || null,
+          farm_business_name: newFarmer.farmName || null,
+          id_number: newFarmer.idNumber || null,
         })
         .select()
-        .single();
+        .single()
+        .execute();
 
       if (error) throw error;
 
-      setOwners([...owners, data]);
-      form.setValue("ownerId", data.id);
-      setShowOwnerDialog(false);
-      setNewOwner({ name: "", phone: "", email: "", address: "", farmName: "", idNumber: "" });
+      setFarmers([...farmers, data]);
+      form.setValue("farmerId", data.id);
+      setShowFarmerDialog(false);
+      setNewFarmer({ name: "", phone: "", email: "", address: "", farmName: "", idNumber: "" });
       toast({
-        title: "Owner created",
-        description: "New dryer owner has been added successfully",
+        title: "Farmer created",
+        description: "New dryer farmer has been added successfully",
       });
     } catch (error: any) {
       toast({
-        title: "Error creating owner",
-        description: error.message,
+        title: "Error creating farmer",
+        description: (error as any).message,
         variant: "destructive",
       });
     }
@@ -203,7 +205,7 @@ const RegisterDryer = () => {
         location_longitude: values.locationLongitude ? parseFloat(values.locationLongitude) : null,
         location_address: values.locationAddress,
         region_id: values.regionId,
-        owner_id: values.ownerId || null,
+        farmer_id: values.farmerId || null,
         num_temp_sensors: values.numTempSensors,
         num_humidity_sensors: values.numHumiditySensors,
         num_fans: values.numFans,
@@ -212,7 +214,7 @@ const RegisterDryer = () => {
         battery_capacity_ah: values.batteryCapacityAh,
         current_preset_id: values.currentPresetId || null,
         status: "idle",
-      });
+      }).execute();
 
       if (error) throw error;
 
@@ -225,7 +227,7 @@ const RegisterDryer = () => {
     } catch (error: any) {
       toast({
         title: "Error registering dryer",
-        description: error.message,
+        description: (error as any).message,
         variant: "destructive",
       });
     } finally {
@@ -523,30 +525,30 @@ const RegisterDryer = () => {
               </CardContent>
             </Card>
 
-            {/* Owner Information */}
+            {/* Farmer Information */}
             <Card>
               <CardHeader>
-                <CardTitle>Owner Information</CardTitle>
-                <CardDescription>Dryer owner details</CardDescription>
+                <CardTitle>Farmer Information</CardTitle>
+                <CardDescription>Dryer farmer details</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
                   <FormField
                     control={form.control}
-                    name="ownerId"
+                    name="farmerId"
                     render={({ field }) => (
                       <FormItem className="flex-1">
-                        <FormLabel>Owner (Optional)</FormLabel>
+                        <FormLabel>Farmer (Optional)</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select owner" />
+                              <SelectValue placeholder="Select farmer" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {owners.map((owner) => (
-                              <SelectItem key={owner.id} value={owner.id}>
-                                {owner.name} {owner.farm_business_name ? `(${owner.farm_business_name})` : ""}
+                            {farmers.map((farmer) => (
+                              <SelectItem key={farmer.id} value={farmer.id}>
+                                {farmer.name} {farmer.farm_business_name ? `(${farmer.farm_business_name})` : ""}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -556,42 +558,42 @@ const RegisterDryer = () => {
                     )}
                   />
 
-                  <Dialog open={showOwnerDialog} onOpenChange={setShowOwnerDialog}>
+                  <Dialog open={showFarmerDialog} onOpenChange={setShowFarmerDialog}>
                     <DialogTrigger asChild>
                       <Button type="button" variant="outline" className="mt-8">
                         <Plus className="h-4 w-4 mr-2" />
-                        New Owner
+                        New Farmer
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Add New Owner</DialogTitle>
+                        <DialogTitle>Add New Farmer</DialogTitle>
                         <DialogDescription>
-                          Create a new dryer owner profile
+                          Create a new dryer farmer profile
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>
                           <Label>Name *</Label>
                           <Input
-                            value={newOwner.name}
-                            onChange={(e) => setNewOwner({ ...newOwner, name: e.target.value })}
-                            placeholder="Owner name"
+                            value={newFarmer.name}
+                            onChange={(e) => setNewFarmer({ ...newFarmer, name: e.target.value })}
+                            placeholder="Farmer name"
                           />
                         </div>
                         <div>
                           <Label>Farm/Business Name</Label>
                           <Input
-                            value={newOwner.farmName}
-                            onChange={(e) => setNewOwner({ ...newOwner, farmName: e.target.value })}
+                            value={newFarmer.farmName}
+                            onChange={(e) => setNewFarmer({ ...newFarmer, farmName: e.target.value })}
                             placeholder="Farm or business name"
                           />
                         </div>
                         <div>
                           <Label>Phone</Label>
                           <Input
-                            value={newOwner.phone}
-                            onChange={(e) => setNewOwner({ ...newOwner, phone: e.target.value })}
+                            value={newFarmer.phone}
+                            onChange={(e) => setNewFarmer({ ...newFarmer, phone: e.target.value })}
                             placeholder="+254..."
                           />
                         </div>
@@ -599,16 +601,16 @@ const RegisterDryer = () => {
                           <Label>Email</Label>
                           <Input
                             type="email"
-                            value={newOwner.email}
-                            onChange={(e) => setNewOwner({ ...newOwner, email: e.target.value })}
-                            placeholder="owner@example.com"
+                            value={newFarmer.email}
+                            onChange={(e) => setNewFarmer({ ...newFarmer, email: e.target.value })}
+                            placeholder="farmer@example.com"
                           />
                         </div>
                         <div>
                           <Label>Address</Label>
                           <Textarea
-                            value={newOwner.address}
-                            onChange={(e) => setNewOwner({ ...newOwner, address: e.target.value })}
+                            value={newFarmer.address}
+                            onChange={(e) => setNewFarmer({ ...newFarmer, address: e.target.value })}
                             placeholder="Physical address"
                             rows={2}
                           />
@@ -616,13 +618,13 @@ const RegisterDryer = () => {
                         <div>
                           <Label>ID Number</Label>
                           <Input
-                            value={newOwner.idNumber}
-                            onChange={(e) => setNewOwner({ ...newOwner, idNumber: e.target.value })}
+                            value={newFarmer.idNumber}
+                            onChange={(e) => setNewFarmer({ ...newFarmer, idNumber: e.target.value })}
                             placeholder="ID or registration number"
                           />
                         </div>
-                        <Button onClick={handleCreateOwner} className="w-full">
-                          Create Owner
+                        <Button onClick={handleCreateFarmer} className="w-full">
+                          Create Farmer
                         </Button>
                       </div>
                     </DialogContent>

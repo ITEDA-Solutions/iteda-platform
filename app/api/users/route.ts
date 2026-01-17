@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { users, profiles, userRoles } from '@/lib/schema';
+export const dynamic = 'force-dynamic';
+import { staff as users, profiles, staffRoles as userRoles } from '@/lib/schema';
 import { AuthService } from '@/lib/auth';
 import { eq, sql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
     // Verify admin access
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.replace('Bearer ', '');
-    
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
       })
       .from(users)
       .leftJoin(profiles, eq(users.id, profiles.id))
-      .leftJoin(userRoles, eq(profiles.id, userRoles.userId))
+      .leftJoin(userRoles, eq(profiles.id, userRoles.staffId))
       .orderBy(users.createdAt);
 
     return NextResponse.json(allUsers);
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
     // Verify admin access
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.replace('Bearer ', '');
-    
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     // Create user role
     const [userRole] = await db.insert(userRoles).values({
-      userId: newUser.id,
+      staffId: newUser.id,
       role,
       region,
     }).returning();

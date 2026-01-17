@@ -16,10 +16,11 @@ export const useUserRole = () => {
       if (!session?.user?.id) return null;
 
       const { data, error } = await supabase
-        .from("user_roles")
+        .from("staff_roles")
         .select("role")
-        .eq("user_id", session.user.id)
-        .single();
+        .eq("staff_id", session.user.id)
+        .single()
+        .execute();
 
       if (error) {
         console.error("Error fetching user role:", error);

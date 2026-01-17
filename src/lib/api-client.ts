@@ -19,7 +19,7 @@ class ApiClient {
   // Helper method to make API calls
   private async request(endpoint: string, options: RequestInit = {}) {
     const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-    
+
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       ...options,
       headers: {
@@ -30,7 +30,7 @@ class ApiClient {
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       return { data: null, error: { message: data.error || 'An error occurred' } };
     }
@@ -40,10 +40,13 @@ class ApiClient {
 
   // Auth methods
   auth = {
-    signUp: async ({ email, password, options }: { 
-      email: string; 
-      password: string; 
-      options?: { data?: { full_name?: string } } 
+    signUp: async ({ email, password, options }: {
+      email: string;
+      password: string;
+      options?: {
+        data?: { full_name?: string };
+        emailRedirectTo?: string;
+      }
     }) => {
       const result = await this.request('/auth/signup', {
         method: 'POST',
@@ -111,19 +114,51 @@ class ApiClient {
     }
   };
 
+  // Realtime subscription methods (mocked)
+  channel(name: string) {
+    return {
+      on: (event: string, config: any, callback: () => void) => {
+        return {
+          subscribe: () => {
+            return { unsubscribe: () => { } };
+          }
+        }
+      },
+      subscribe: () => {
+        return {
+          unsubscribe: () => { }
+        }
+      },
+      unsubscribe: () => { }
+    };
+  }
+
+  removeChannel(channel: any) {
+    if (channel && typeof channel.unsubscribe === 'function') {
+      channel.unsubscribe();
+    }
+  }
+
   // Database query methods
   from(table: string) {
     return new QueryBuilder(table, this.request.bind(this));
   }
 }
 
-class QueryBuilder {
+// Type definitions for Supabase-compatible responses
+export interface PostgrestResponse<T = any> {
+  data: T | null;
+  error: { message: string } | null;
+}
+
+class QueryBuilder implements PromiseLike<PostgrestResponse> {
   private tableName: string;
   private request: (endpoint: string, options?: RequestInit) => Promise<any>;
   private selectFields: string[] = ['*'];
   private whereConditions: any[] = [];
   private orderByFields: any[] = [];
   private limitCount?: number;
+  private isSingle: boolean = false;
 
   constructor(tableName: string, request: (endpoint: string, options?: RequestInit) => Promise<any>) {
     this.tableName = tableName;
@@ -165,6 +200,16 @@ class QueryBuilder {
     return this;
   }
 
+  like(column: string, pattern: string) {
+    this.whereConditions.push({ column, operator: 'LIKE', value: pattern });
+    return this;
+  }
+
+  ilike(column: string, pattern: string) {
+    this.whereConditions.push({ column, operator: 'ILIKE', value: pattern });
+    return this;
+  }
+
   order(column: string, options?: { ascending?: boolean }) {
     this.orderByFields.push({ column, ascending: options?.ascending !== false });
     return this;
@@ -175,54 +220,123 @@ class QueryBuilder {
     return this;
   }
 
-  async insert(values: any | any[]) {
-    return await this.request(`/db/${this.tableName}`, {
-      method: 'POST',
-      body: JSON.stringify({ values }),
+  single() {
+    this.isSingle = true;
+    this.limitCount = 1;
+    return this;
+  }
+
+  insert(values: any | any[]) {
+    return new TerminalQuery(async () => {
+      const result = await this.request(`/db/${this.tableName}`, {
+        method: 'POST',
+        body: JSON.stringify({ values }),
+      });
+      return result;
     });
   }
 
-  async update(values: any) {
-    return await this.request(`/db/${this.tableName}`, {
-      method: 'PUT',
-      body: JSON.stringify({ 
-        values,
-        where: this.whereConditions,
-      }),
+  update(values: any) {
+    return new TerminalQuery(async () => {
+      return await this.request(`/db/${this.tableName}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          values,
+          where: this.whereConditions,
+        }),
+      });
     });
   }
 
-  async delete() {
-    return await this.request(`/db/${this.tableName}`, {
-      method: 'DELETE',
-      body: JSON.stringify({ where: this.whereConditions }),
+  delete() {
+    return new TerminalQuery(async () => {
+      return await this.request(`/db/${this.tableName}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ where: this.whereConditions }),
+      });
     });
+  }
+
+  // Make QueryBuilder thenable so it can be awaited directly
+  then(onfulfilled?: any, onrejected?: any) {
+    return this.execute().then(onfulfilled, onrejected);
+  }
+
+  catch(onrejected?: any) {
+    return this.execute().catch(onrejected);
   }
 
   // Execute the query
   async execute() {
     const params = new URLSearchParams();
-    
+
     if (this.selectFields.length > 0 && this.selectFields[0] !== '*') {
       params.append('select', this.selectFields.join(','));
     }
-    
+
     if (this.whereConditions.length > 0) {
       params.append('where', JSON.stringify(this.whereConditions));
     }
-    
+
     if (this.orderByFields.length > 0) {
       params.append('order', JSON.stringify(this.orderByFields));
     }
-    
+
     if (this.limitCount) {
       params.append('limit', this.limitCount.toString());
     }
 
     const queryString = params.toString();
     const endpoint = `/db/${this.tableName}${queryString ? `?${queryString}` : ''}`;
-    
-    return await this.request(endpoint);
+
+    const result = await this.request(endpoint);
+
+    // If single() was called, return just the first item
+    if (this.isSingle && result.data && Array.isArray(result.data)) {
+      return { ...result, data: result.data[0] || null };
+    }
+
+    return result;
+  }
+}
+
+// Terminal query class for insert/update/delete that need to be chained with select().single()
+class TerminalQuery implements PromiseLike<PostgrestResponse> {
+  private executor: () => Promise<any>;
+  private selectFields: boolean = false;
+  private isSingle: boolean = false;
+
+  constructor(executor: () => Promise<any>) {
+    this.executor = executor;
+  }
+
+  select(fields: string = '*') {
+    this.selectFields = true;
+    return this;
+  }
+
+  single() {
+    this.isSingle = true;
+    return this;
+  }
+
+  // Make TerminalQuery thenable
+  then(onfulfilled?: any, onrejected?: any) {
+    return this.executor().then((result) => {
+      if (this.isSingle && result.data && Array.isArray(result.data)) {
+        return { ...result, data: result.data[0] || null };
+      }
+      return result;
+    }).then(onfulfilled, onrejected);
+  }
+
+  catch(onrejected?: any) {
+    return this.executor().catch(onrejected);
+  }
+
+  // Explicit execution method
+  execute() {
+    return this.executor();
   }
 }
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { AuthService } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     const user = await AuthService.verifyToken(token);
-    
+
     if (!user) {
       return NextResponse.json({ session: null });
     }
