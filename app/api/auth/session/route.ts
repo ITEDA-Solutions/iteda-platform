@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthService } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -11,14 +13,21 @@ export async function GET(request: NextRequest) {
     }
 
     const user = await AuthService.verifyToken(token);
-    
+
     if (!user) {
       return NextResponse.json({ session: null });
     }
 
+    // Get user roles
+    const roles = await AuthService.getUserRoles(user.id);
+
     return NextResponse.json({
-      user,
-      token,
+      user: {
+        ...user,
+        roles,
+      },
+      token, // For backward compatibility
+      accessToken: token,
     });
   } catch (error: any) {
     console.error('Session error:', error);

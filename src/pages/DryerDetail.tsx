@@ -18,37 +18,58 @@ import OperationalTimeline from "@/components/dryer-detail/OperationalTimeline";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { Session } from "@supabase/supabase-js";
 
 const DryerDetail = () => {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [timeRange, setTimeRange] = useState<"6h" | "24h" | "7d">("24h");
+  const [session, setSession] = useState<Session | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
 
-  // Fetch dryer details
-  const { data: dryer, isLoading: loadingDryer } = useQuery({
-    queryKey: ["dryer", id],
+  // Wait for session to be ready
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setSessionLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setSessionLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Fetch dryer details - only when session is ready
+  const { data: dryer, isLoading: loadingDryer, error: dryerError } = useQuery({
+    queryKey: ["dryer", id, session?.access_token],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("dryers")
         .select(`
           *,
-          owner:dryer_owners(*),
-          region:regions(*),
-          current_preset:presets(*),
-          assigned_technician:profiles(*)
+          owner:dryer_owners!dryers_owner_id_fkey(*),
+          region:regions!dryers_region_id_fkey(*),
+          current_preset:presets!fk_current_preset(*),
+          assigned_technician:profiles!dryers_assigned_technician_id_fkey(*)
         `)
         .eq("id", id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching dryer:", error);
+        throw error;
+      }
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && !!session && !sessionLoading,
   });
 
-  // Fetch sensor readings
+  // Fetch sensor readings - only when session is ready
   const { data: sensorReadings, isLoading: loadingReadings } = useQuery({
-    queryKey: ["sensor-readings", id, timeRange],
+    queryKey: ["sensor-readings", id, timeRange, session?.access_token],
     queryFn: async () => {
       const now = new Date();
       let startTime = new Date();
@@ -72,10 +93,13 @@ const DryerDetail = () => {
         .gte("timestamp", startTime.toISOString())
         .order("timestamp", { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching sensor readings:", error);
+        throw error;
+      }
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && !!session && !sessionLoading,
   });
 
   // Subscribe to real-time updates
@@ -106,7 +130,7 @@ const DryerDetail = () => {
 
   const latestReading = sensorReadings?.[sensorReadings.length - 1];
 
-  if (loadingDryer) {
+  if (sessionLoading || loadingDryer) {
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto p-6 space-y-6">
@@ -127,8 +151,16 @@ const DryerDetail = () => {
         <Card className="w-96">
           <CardContent className="pt-6">
             <p className="text-center text-muted-foreground">Dryer not found</p>
-            <Button onClick={() => router.push("/dashboard")} className="w-full mt-4">
-              Back to Dashboard
+            {dryerError && (
+              <p className="text-center text-destructive text-sm mt-2">
+                Error: {(dryerError as Error).message}
+              </p>
+            )}
+            <p className="text-center text-muted-foreground text-xs mt-2">
+              ID: {id}
+            </p>
+            <Button onClick={() => router.push("/dashboard/dryers")} className="w-full mt-4">
+              Back to Dryers
             </Button>
           </CardContent>
         </Card>

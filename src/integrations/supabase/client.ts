@@ -1,6 +1,20 @@
-// Database client - migrated from Supabase to local PostgreSQL
-// Import the database client like this:
-// import { supabase } from "@/integrations/supabase/client";
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from './types';
 
-// Re-export the API client for backward compatibility
-export { supabase } from '@/lib/api-client';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error('Missing Supabase environment variables');
+}
+
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+});
+
+// Export for backward compatibility
+export { supabase as apiClient };

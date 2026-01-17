@@ -13,11 +13,13 @@ export async function POST(request: NextRequest) {
     }
 
     const session = await AuthService.signUp(email, password, fullName);
-    
+
     return NextResponse.json({
       session,
       user: session.user,
-      token: session.token,
+      token: session.accessToken, // For backward compatibility
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
     });
   } catch (error: any) {
     console.error('Signup error:', error);

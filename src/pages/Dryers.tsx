@@ -57,9 +57,9 @@ const Dryers = () => {
         .from("dryers")
         .select(`
           *,
-          owner:dryer_owners(*),
-          region:regions(*),
-          current_preset:presets(*)
+          owner:dryer_owners!dryers_owner_id_fkey(*),
+          region:regions!dryers_region_id_fkey(*),
+          current_preset:presets!fk_current_preset(*)
         `)
         .order("created_at", { ascending: false });
 
@@ -318,7 +318,7 @@ const Dryers = () => {
                           if ((e.target as HTMLElement).closest('button, input[type="checkbox"]')) {
                             return;
                           }
-                          router.push(`/dryer/${dryer.id}`);
+                          router.push(`/dashboard/dryer/${dryer.id}`);
                         }}
                       >
                         <TableCell onClick={(e) => e.stopPropagation()}>

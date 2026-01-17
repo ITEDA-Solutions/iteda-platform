@@ -379,7 +379,7 @@ const Alerts = () => {
                                   variant="link"
                                   className="p-0 h-auto"
                                   onClick={() =>
-                                    router.push(`/dryer/${alert.dryer_id}`)
+                                    router.push(`/dashboard/dryer/${alert.dryer_id}`)
                                   }
                                 >
                                   {alert.dryer?.dryer_id || "Unknown"}

@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { users, profiles, userRoles } from '@/lib/schema';
+import { supabaseAdmin } from '@/lib/supabase-server';
 import { AuthService } from '@/lib/auth';
-import { eq, sql } from 'drizzle-orm';
-import bcrypt from 'bcryptjs';
 
 // Get all users with their profiles and roles
 export async function GET(request: NextRequest) {
@@ -11,7 +8,7 @@ export async function GET(request: NextRequest) {
     // Verify admin access
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.replace('Bearer ', '');
-    
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -27,22 +24,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    // Get all users with their profiles and roles
-    const allUsers = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        createdAt: users.createdAt,
-        fullName: profiles.fullName,
-        phone: profiles.phone,
-        role: userRoles.role,
-        region: userRoles.region,
-        roleCreatedAt: userRoles.createdAt,
+    // Get all profiles (profiles are linked to auth.users)
+    const { data: profiles, error: profilesError } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .order('created_at');
+
+    if (profilesError) {
+      throw new Error(profilesError.message);
+    }
+
+    // Get roles for each profile
+    const allUsers = await Promise.all(
+      (profiles || []).map(async (profile) => {
+        const { data: userRole } = await supabaseAdmin
+          .from('user_roles')
+          .select('role, region, created_at')
+          .eq('user_id', profile.id)
+          .single();
+
+        return {
+          id: profile.id,
+          email: profile.email,
+          createdAt: profile.created_at,
+          fullName: profile.full_name,
+          phone: profile.phone,
+          avatarUrl: profile.avatar_url,
+          role: userRole?.role || null,
+          region: userRole?.region || null,
+          roleCreatedAt: userRole?.created_at || null,
+        };
       })
-      .from(users)
-      .leftJoin(profiles, eq(users.id, profiles.id))
-      .leftJoin(userRoles, eq(profiles.id, userRoles.userId))
-      .orderBy(users.createdAt);
+    );
 
     return NextResponse.json(allUsers);
   } catch (error: any) {
@@ -54,13 +67,13 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Create new user
+// Create new user (using Supabase Auth Admin API)
 export async function POST(request: NextRequest) {
   try {
     // Verify admin access
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.replace('Bearer ', '');
-    
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -84,44 +97,59 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already exists
-    const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    if (existingUser.length > 0) {
-      return NextResponse.json({ error: 'User already exists' }, { status: 400 });
+    // Create user via Supabase Auth Admin API
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // Auto-confirm email for admin-created users
+      user_metadata: {
+        full_name: fullName,
+      },
+    });
+
+    if (authError || !authData.user) {
+      throw new Error(authError?.message || 'Failed to create user');
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
+    // The trigger will auto-create the profile, but we may need to update phone
+    if (phone) {
+      await supabaseAdmin
+        .from('profiles')
+        .update({ phone })
+        .eq('id', authData.user.id);
+    }
 
-    // Create user
-    const [newUser] = await db.insert(users).values({
-      email,
-      password: hashedPassword,
-    }).returning();
+    // Assign role
+    const { data: userRole, error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .insert({
+        user_id: authData.user.id,
+        role,
+        region,
+      })
+      .select()
+      .single();
 
-    // Create profile
-    const [profile] = await db.insert(profiles).values({
-      id: newUser.id,
-      email,
-      fullName: fullName || email,
-      phone,
-    }).returning();
+    if (roleError) {
+      console.error('Error assigning role:', roleError);
+    }
 
-    // Create user role
-    const [userRole] = await db.insert(userRoles).values({
-      userId: newUser.id,
-      role,
-      region,
-    }).returning();
+    // Fetch the complete profile
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
 
     return NextResponse.json({
-      id: newUser.id,
-      email: newUser.email,
-      fullName: profile.fullName,
-      phone: profile.phone,
-      role: userRole.role,
-      region: userRole.region,
-      createdAt: newUser.createdAt,
+      id: authData.user.id,
+      email: authData.user.email,
+      fullName: profile?.full_name || fullName,
+      phone: profile?.phone || phone,
+      avatarUrl: profile?.avatar_url,
+      role: userRole?.role || role,
+      region: userRole?.region || region,
+      createdAt: authData.user.created_at,
     });
   } catch (error: any) {
     console.error('Error creating user:', error);

@@ -1,64 +1,63 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { db } from './db';
-import { users, profiles, userRoles } from './schema';
-import { eq } from 'drizzle-orm';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-here';
+import { supabaseAdmin } from './supabase-server';
 
 export interface User {
   id: string;
   email: string;
   fullName?: string;
   phone?: string;
+  avatarUrl?: string;
 }
 
 export interface AuthSession {
   user: User;
-  token: string;
+  accessToken: string;
+  refreshToken?: string;
 }
 
 export class AuthService {
-  // Sign up new user
-  static async signUp(email: string, password: string, fullName?: string): Promise<AuthSession> {
+  // Sign up new user using Supabase Auth
+  static async signUp(
+    email: string,
+    password: string,
+    fullName?: string
+  ): Promise<AuthSession> {
     try {
-      // Check if user already exists
-      const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
-      if (existingUser.length > 0) {
-        throw new Error('User already exists');
+      const { data, error } = await supabaseAdmin.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message);
       }
 
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 12);
+      if (!data.user || !data.session) {
+        throw new Error('Signup failed - no user or session returned');
+      }
 
-      // Create user
-      const [newUser] = await db.insert(users).values({
-        email,
-        password: hashedPassword,
-      }).returning();
-
-      // Create profile
-      const [profile] = await db.insert(profiles).values({
-        id: newUser.id,
-        email,
-        fullName: fullName || email,
-      }).returning();
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { userId: newUser.id, email: newUser.email },
-        JWT_SECRET,
-        { expiresIn: '7d' }
-      );
+      // The trigger will automatically create the profile
+      // Fetch the profile to return complete user data
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
 
       return {
         user: {
-          id: profile.id,
-          email: profile.email,
-          fullName: profile.fullName || undefined,
-          phone: profile.phone || undefined,
+          id: data.user.id,
+          email: data.user.email!,
+          fullName: profile?.full_name || fullName,
+          phone: profile?.phone || undefined,
+          avatarUrl: profile?.avatar_url || undefined,
         },
-        token,
+        accessToken: data.session.access_token,
+        refreshToken: data.session.refresh_token,
       };
     } catch (error) {
       console.error('Sign up error:', error);
@@ -66,42 +65,39 @@ export class AuthService {
     }
   }
 
-  // Sign in user
+  // Sign in user using Supabase Auth
   static async signIn(email: string, password: string): Promise<AuthSession> {
     try {
-      // Find user
-      const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-      if (!user) {
-        throw new Error('Invalid credentials');
+      const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw new Error(error.message);
       }
 
-      // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      if (!isValidPassword) {
-        throw new Error('Invalid credentials');
+      if (!data.user || !data.session) {
+        throw new Error('Sign in failed - no user or session returned');
       }
 
-      // Get profile
-      const [profile] = await db.select().from(profiles).where(eq(profiles.id, user.id)).limit(1);
-      if (!profile) {
-        throw new Error('Profile not found');
-      }
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { userId: user.id, email: user.email },
-        JWT_SECRET,
-        { expiresIn: '7d' }
-      );
+      // Fetch the profile
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
 
       return {
         user: {
-          id: profile.id,
-          email: profile.email,
-          fullName: profile.fullName || undefined,
-          phone: profile.phone || undefined,
+          id: data.user.id,
+          email: data.user.email!,
+          fullName: profile?.full_name || undefined,
+          phone: profile?.phone || undefined,
+          avatarUrl: profile?.avatar_url || undefined,
         },
-        token,
+        accessToken: data.session.access_token,
+        refreshToken: data.session.refresh_token,
       };
     } catch (error) {
       console.error('Sign in error:', error);
@@ -109,22 +105,28 @@ export class AuthService {
     }
   }
 
-  // Verify JWT token
-  static async verifyToken(token: string): Promise<User | null> {
+  // Verify access token and get user
+  static async verifyToken(accessToken: string): Promise<User | null> {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string };
-      
-      // Get user profile
-      const [profile] = await db.select().from(profiles).where(eq(profiles.id, decoded.userId)).limit(1);
-      if (!profile) {
+      const { data, error } = await supabaseAdmin.auth.getUser(accessToken);
+
+      if (error || !data.user) {
         return null;
       }
 
+      // Fetch the profile
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
       return {
-        id: profile.id,
-        email: profile.email,
-        fullName: profile.fullName || undefined,
-        phone: profile.phone || undefined,
+        id: data.user.id,
+        email: data.user.email!,
+        fullName: profile?.full_name || undefined,
+        phone: profile?.phone || undefined,
+        avatarUrl: profile?.avatar_url || undefined,
       };
     } catch (error) {
       console.error('Token verification error:', error);
@@ -132,33 +134,40 @@ export class AuthService {
     }
   }
 
-  // Get user session from token
-  static async getSession(token?: string): Promise<AuthSession | null> {
-    if (!token) return null;
+  // Get user session from access token
+  static async getSession(accessToken?: string): Promise<AuthSession | null> {
+    if (!accessToken) return null;
 
-    const user = await this.verifyToken(token);
+    const user = await this.verifyToken(accessToken);
     if (!user) return null;
 
-    return { user, token };
+    return { user, accessToken };
   }
 
-  // Sign out (client-side token removal)
-  static async signOut(): Promise<void> {
-    // In a real app, you might want to blacklist the token
-    // For now, we'll just rely on client-side token removal
-    return Promise.resolve();
+  // Sign out user
+  static async signOut(accessToken?: string): Promise<void> {
+    try {
+      if (accessToken) {
+        // Sign out the specific session
+        await supabaseAdmin.auth.admin.signOut(accessToken);
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
+      // Don't throw - sign out should be graceful
+    }
   }
 
   // Check if user has specific role
   static async hasRole(userId: string, role: string): Promise<boolean> {
     try {
-      const [userRole] = await db
-        .select()
-        .from(userRoles)
-        .where(eq(userRoles.userId, userId))
-        .limit(1);
+      const { data: userRole, error } = await supabaseAdmin
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', role as any)
+        .single();
 
-      return userRole?.role === role;
+      return !error && !!userRole;
     } catch (error) {
       console.error('Role check error:', error);
       return false;
@@ -168,14 +177,113 @@ export class AuthService {
   // Check if user is admin
   static async isAdmin(userId: string): Promise<boolean> {
     try {
-      const roles = await db
-        .select()
-        .from(userRoles)
-        .where(eq(userRoles.userId, userId));
+      const { data: roles, error } = await supabaseAdmin
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
 
-      return roles.some(role => ['admin', 'super_admin'].includes(role.role));
+      if (error || !roles) {
+        return false;
+      }
+
+      return roles.some((r) => ['admin', 'super_admin'].includes(r.role));
     } catch (error) {
       console.error('Admin check error:', error);
+      return false;
+    }
+  }
+
+  // Get user's roles
+  static async getUserRoles(userId: string): Promise<string[]> {
+    try {
+      const { data: roles, error } = await supabaseAdmin
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
+
+      if (error || !roles) {
+        return [];
+      }
+
+      return roles.map((r) => r.role);
+    } catch (error) {
+      console.error('Get roles error:', error);
+      return [];
+    }
+  }
+
+  // Update user profile
+  static async updateProfile(
+    userId: string,
+    updates: { fullName?: string; phone?: string; avatarUrl?: string }
+  ): Promise<User | null> {
+    try {
+      const updateData: Record<string, any> = {};
+      if (updates.fullName !== undefined) updateData.full_name = updates.fullName;
+      if (updates.phone !== undefined) updateData.phone = updates.phone;
+      if (updates.avatarUrl !== undefined) updateData.avatar_url = updates.avatarUrl;
+
+      const { data: profile, error } = await supabaseAdmin
+        .from('profiles')
+        .update(updateData)
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error || !profile) {
+        throw new Error(error?.message || 'Failed to update profile');
+      }
+
+      return {
+        id: profile.id,
+        email: profile.email,
+        fullName: profile.full_name || undefined,
+        phone: profile.phone || undefined,
+        avatarUrl: profile.avatar_url || undefined,
+      };
+    } catch (error) {
+      console.error('Update profile error:', error);
+      return null;
+    }
+  }
+
+  // Assign role to user (admin only)
+  static async assignRole(
+    userId: string,
+    role: string,
+    region?: string
+  ): Promise<boolean> {
+    try {
+      const { error } = await supabaseAdmin.from('user_roles').upsert(
+        {
+          user_id: userId,
+          role: role as any,
+          region,
+        },
+        {
+          onConflict: 'user_id,role',
+        }
+      );
+
+      return !error;
+    } catch (error) {
+      console.error('Assign role error:', error);
+      return false;
+    }
+  }
+
+  // Remove role from user (admin only)
+  static async removeRole(userId: string, role: string): Promise<boolean> {
+    try {
+      const { error } = await supabaseAdmin
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId)
+        .eq('role', role as any);
+
+      return !error;
+    } catch (error) {
+      console.error('Remove role error:', error);
       return false;
     }
   }

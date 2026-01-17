@@ -20,7 +20,7 @@ const Analytics = () => {
   const { data: dryers } = useQuery({
     queryKey: ["dryers", selectedRegion],
     queryFn: async () => {
-      let query = supabase.from("dryers").select("*, regions(name)");
+      let query = supabase.from("dryers").select("*, regions!dryers_region_id_fkey(name)");
       
       if (selectedRegion !== "all") {
         query = query.eq("region_id", selectedRegion);
@@ -38,7 +38,7 @@ const Analytics = () => {
     queryFn: async () => {
       let query = supabase
         .from("sensor_readings")
-        .select("*, dryers(region_id)")
+        .select("*, dryers!sensor_readings_dryer_id_fkey(region_id)")
         .gte("timestamp", startDate.toISOString())
         .lte("timestamp", endDate.toISOString())
         .order("timestamp", { ascending: true });

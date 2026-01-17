@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Plus, Edit, Trash2, Shield, Users as UsersIcon } from "lucide-react";
@@ -92,13 +93,19 @@ const Users = () => {
   const router = useRouter();
   const { toast } = useToast();
 
+  // Helper function to get the access token from Supabase session
+  const getAccessToken = async (): Promise<string | null> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
 
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = await getAccessToken();
       if (!token) {
         router.push('/auth');
         return;
@@ -133,7 +140,7 @@ const Users = () => {
 
   const createUser = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = await getAccessToken();
       if (!token) {
         router.push('/auth');
         return;
@@ -182,7 +189,7 @@ const Users = () => {
     if (!editingUser) return;
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = await getAccessToken();
       if (!token) {
         router.push('/auth');
         return;
@@ -227,7 +234,7 @@ const Users = () => {
 
   const deleteUser = async (userId: string, userEmail: string) => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = await getAccessToken();
       if (!token) {
         router.push('/auth');
         return;

@@ -13,11 +13,19 @@ export async function POST(request: NextRequest) {
     }
 
     const session = await AuthService.signIn(email, password);
-    
+
+    // Get user roles
+    const roles = await AuthService.getUserRoles(session.user.id);
+
     return NextResponse.json({
       session,
-      user: session.user,
-      token: session.token,
+      user: {
+        ...session.user,
+        roles,
+      },
+      token: session.accessToken, // For backward compatibility
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
     });
   } catch (error: any) {
     console.error('Signin error:', error);
