@@ -44,7 +44,8 @@ const Presets = () => {
       const { data, error } = await supabase
         .from("presets")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .execute();
 
       if (error) throw error;
       return data;
@@ -53,7 +54,7 @@ const Presets = () => {
 
   const createPreset = useMutation({
     mutationFn: async (data: PresetFormData) => {
-      const { error } = await supabase.from("presets").insert([data]);
+      const { error } = await supabase.from("presets").insert([data]).execute();
       if (error) throw error;
     },
     onSuccess: () => {
@@ -69,7 +70,7 @@ const Presets = () => {
 
   const updatePreset = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<PresetFormData> }) => {
-      const { error } = await supabase.from("presets").update(data).eq("id", id);
+      const { error } = await supabase.from("presets").eq("id", id).update(data).execute();
       if (error) throw error;
     },
     onSuccess: () => {
@@ -85,7 +86,7 @@ const Presets = () => {
 
   const deletePreset = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("presets").delete().eq("id", id);
+      const { error } = await supabase.from("presets").eq("id", id).delete().execute();
       if (error) throw error;
     },
     onSuccess: () => {
@@ -100,7 +101,7 @@ const Presets = () => {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
+
     const data: PresetFormData = {
       preset_id: formData.get("preset_id") as string,
       crop_type: formData.get("crop_type") as string,
@@ -129,7 +130,7 @@ const Presets = () => {
     return matchesSearch && matchesRegion;
   });
 
-  const regions = [...new Set(presets?.map((p) => p.region) || [])];
+  const regions = Array.from(new Set(presets?.map((p: any) => p.region) || [])) as string[];
 
   if (roleLoading) {
     return (

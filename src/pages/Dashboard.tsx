@@ -31,7 +31,8 @@ const Dashboard = () => {
       // Fetch dryer statistics
       const { data: dryers, error } = await supabase
         .from("dryers")
-        .select("id, dryer_id, status, last_communication, battery_level, active_alerts_count");
+        .select("id, dryer_id, status, last_communication, battery_level, active_alerts_count")
+        .execute();
 
       if (error) throw error;
 
@@ -87,7 +88,7 @@ const Dashboard = () => {
             <Button variant="outline" size="icon" onClick={() => router.push("/dashboard/alerts")}>
               <Bell className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={() => router.push("/dashboard/users")}>
+            <Button variant="outline" size="icon" onClick={() => router.push("/dashboard/staff")}>
               <Users className="h-4 w-4" />
             </Button>
             <Button variant="outline" size="icon">

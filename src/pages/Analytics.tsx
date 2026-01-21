@@ -21,12 +21,12 @@ const Analytics = () => {
     queryKey: ["dryers", selectedRegion],
     queryFn: async () => {
       let query = supabase.from("dryers").select("*, regions(name)");
-      
+
       if (selectedRegion !== "all") {
         query = query.eq("region_id", selectedRegion);
       }
-      
-      const { data, error } = await query;
+
+      const { data, error } = await query.execute();
       if (error) throw error;
       return data;
     },
@@ -43,14 +43,14 @@ const Analytics = () => {
         .lte("timestamp", endDate.toISOString())
         .order("timestamp", { ascending: true });
 
-      const { data, error } = await query;
+      const { data, error } = await query.execute();
       if (error) throw error;
 
       // Filter by region if selected
       if (selectedRegion !== "all") {
         return data?.filter((reading) => reading.dryers?.region_id === selectedRegion);
       }
-      
+
       return data;
     },
   });
@@ -59,7 +59,7 @@ const Analytics = () => {
   const { data: regions } = useQuery({
     queryKey: ["regions"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("regions").select("*");
+      const { data, error } = await supabase.from("regions").select("*").execute();
       if (error) throw error;
       return data;
     },
@@ -81,7 +81,7 @@ const Analytics = () => {
   const energyTrendData = sensorData?.reduce((acc: any[], reading) => {
     const date = format(new Date(reading.timestamp), "MMM dd");
     const existing = acc.find((item) => item.date === date);
-    
+
     if (existing) {
       existing.energy += reading.power_consumption_w || 0;
       existing.count += 1;
@@ -92,7 +92,7 @@ const Analytics = () => {
         count: 1,
       });
     }
-    
+
     return acc;
   }, []).map((item) => ({
     date: item.date,
@@ -103,7 +103,7 @@ const Analytics = () => {
   const tempHumidityData = sensorData?.reduce((acc: any[], reading) => {
     const date = format(new Date(reading.timestamp), "MMM dd");
     const existing = acc.find((item) => item.date === date);
-    
+
     if (existing) {
       existing.temp += reading.chamber_temp || 0;
       existing.humidity += reading.internal_humidity || 0;
@@ -116,7 +116,7 @@ const Analytics = () => {
         count: 1,
       });
     }
-    
+
     return acc;
   }, []).map((item) => ({
     date: item.date,

@@ -57,7 +57,7 @@ const Dryers = () => {
         .from("dryers")
         .select(`
           *,
-          owner:dryer_owners(*),
+          farmer:farmers(*),
           region:regions(*),
           current_preset:presets(*)
         `)
@@ -71,7 +71,7 @@ const Dryers = () => {
         query = query.eq("region_id", regionFilter);
       }
 
-      const { data, error } = await query;
+      const { data, error } = await query.execute();
       if (error) throw error;
 
       // Client-side search filtering
@@ -80,7 +80,7 @@ const Dryers = () => {
           (dryer) =>
             dryer.dryer_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
             dryer.serial_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            dryer.owner?.name.toLowerCase().includes(searchQuery.toLowerCase())
+            dryer.farmer?.name.toLowerCase().includes(searchQuery.toLowerCase())
         );
       }
 
@@ -95,7 +95,8 @@ const Dryers = () => {
       const { data, error } = await supabase
         .from("regions")
         .select("*")
-        .order("name");
+        .order("name")
+        .execute();
       if (error) throw error;
       return data;
     },
@@ -133,7 +134,7 @@ const Dryers = () => {
       toast.error("Please select dryers to delete");
       return;
     }
-    
+
     if (!confirm(`Are you sure you want to delete ${selectedDryers.size} dryers?`)) {
       return;
     }
@@ -272,7 +273,7 @@ const Dryers = () => {
               <CardTitle>
                 All Dryers ({dryers?.length || 0})
               </CardTitle>
-              <Button onClick={() => router.push("/register-dryer")}>
+              <Button onClick={() => router.push("/dashboard/register-dryer")}>
                 Register New Dryer
               </Button>
             </div>
@@ -302,7 +303,7 @@ const Dryers = () => {
                       <TableHead>Serial Number</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Region</TableHead>
-                      <TableHead>Owner</TableHead>
+                      <TableHead>Farmer</TableHead>
                       <TableHead>Battery</TableHead>
                       <TableHead>Signal</TableHead>
                       <TableHead>Last Comm</TableHead>
@@ -318,7 +319,7 @@ const Dryers = () => {
                           if ((e.target as HTMLElement).closest('button, input[type="checkbox"]')) {
                             return;
                           }
-                          router.push(`/dryer/${dryer.id}`);
+                          router.push(`/dashboard/dryer/${dryer.id}`);
                         }}
                       >
                         <TableCell onClick={(e) => e.stopPropagation()}>
@@ -344,7 +345,7 @@ const Dryers = () => {
                             {dryer.region?.name || "N/A"}
                           </div>
                         </TableCell>
-                        <TableCell>{dryer.owner?.name || "Unassigned"}</TableCell>
+                        <TableCell>{dryer.farmer?.name || "Unassigned"}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Battery
@@ -372,16 +373,16 @@ const Dryers = () => {
                         <TableCell className="text-sm">
                           {dryer.last_communication
                             ? formatDistanceToNow(
-                                new Date(dryer.last_communication),
-                                { addSuffix: true }
-                              )
+                              new Date(dryer.last_communication),
+                              { addSuffix: true }
+                            )
                             : "Never"}
                         </TableCell>
                         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => router.push(`/register-dryer?edit=${dryer.id}`)}
+                            onClick={() => router.push(`/dashboard/register-dryer?edit=${dryer.id}`)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>

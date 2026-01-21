@@ -7,8 +7,8 @@ export const dryerStatusEnum = pgEnum('dryer_status', ['active', 'idle', 'offlin
 export const alertSeverityEnum = pgEnum('alert_severity', ['critical', 'warning', 'info']);
 export const alertStatusEnum = pgEnum('alert_status', ['active', 'acknowledged', 'resolved', 'dismissed']);
 
-// Users table (simplified for local auth)
-export const users = pgTable('users', {
+// Staff table (simplified for local auth)
+export const staff = pgTable('staff', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
   password: text('password').notNull(), // hashed password
@@ -18,7 +18,7 @@ export const users = pgTable('users', {
 
 // Profiles table
 export const profiles = pgTable('profiles', {
-  id: uuid('id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  id: uuid('id').primaryKey().references(() => staff.id, { onDelete: 'cascade' }),
   email: text('email').notNull(),
   fullName: text('full_name'),
   phone: text('phone'),
@@ -26,15 +26,15 @@ export const profiles = pgTable('profiles', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// User roles table
-export const userRoles = pgTable('user_roles', {
+// Staff roles table
+export const staffRoles = pgTable('staff_roles', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').references(() => profiles.id, { onDelete: 'cascade' }).notNull(),
+  staffId: uuid('staff_id').references(() => profiles.id, { onDelete: 'cascade' }).notNull(),
   role: appRoleEnum('role').notNull(),
   region: text('region'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
-  uniqueUserRole: uniqueIndex('unique_user_role').on(table.userId, table.role),
+  uniqueStaffRole: uniqueIndex('unique_staff_role').on(table.staffId, table.role),
 }));
 
 // Regions table
@@ -45,8 +45,8 @@ export const regions = pgTable('regions', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Dryer owners table
-export const dryerOwners = pgTable('dryer_owners', {
+// Farmers table
+export const farmers = pgTable('farmers', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   phone: text('phone'),
@@ -87,8 +87,8 @@ export const dryers = pgTable('dryers', {
   locationLongitude: decimal('location_longitude', { precision: 11, scale: 8 }),
   locationAddress: text('location_address'),
   regionId: uuid('region_id').references(() => regions.id),
-  ownerId: uuid('owner_id').references(() => dryerOwners.id),
-  
+  farmerId: uuid('farmer_id').references(() => farmers.id),
+
   // Hardware configuration
   numTempSensors: integer('num_temp_sensors').default(3),
   numHumiditySensors: integer('num_humidity_sensors').default(2),
@@ -96,7 +96,7 @@ export const dryers = pgTable('dryers', {
   numHeaters: integer('num_heaters').default(1),
   solarCapacityW: integer('solar_capacity_w'),
   batteryCapacityAh: integer('battery_capacity_ah'),
-  
+
   // Current operational data
   currentPresetId: uuid('current_preset_id').references(() => presets.id),
   lastCommunication: timestamp('last_communication'),
@@ -105,7 +105,7 @@ export const dryers = pgTable('dryers', {
   batteryVoltage: decimal('battery_voltage', { precision: 5, scale: 2 }),
   signalStrength: integer('signal_strength'),
   activeAlertsCount: integer('active_alerts_count').default(0),
-  
+
   assignedTechnicianId: uuid('assigned_technician_id').references(() => profiles.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -116,34 +116,34 @@ export const sensorReadings = pgTable('sensor_readings', {
   id: uuid('id').primaryKey().defaultRandom(),
   dryerId: uuid('dryer_id').references(() => dryers.id, { onDelete: 'cascade' }).notNull(),
   timestamp: timestamp('timestamp').notNull().defaultNow(),
-  
+
   // Temperature readings (°C)
   chamberTemp: decimal('chamber_temp', { precision: 5, scale: 2 }),
   ambientTemp: decimal('ambient_temp', { precision: 5, scale: 2 }),
   heaterTemp: decimal('heater_temp', { precision: 5, scale: 2 }),
-  
+
   // Humidity readings (%)
   internalHumidity: decimal('internal_humidity', { precision: 5, scale: 2 }),
   externalHumidity: decimal('external_humidity', { precision: 5, scale: 2 }),
-  
+
   // Fan data
   fanSpeedRpm: integer('fan_speed_rpm'),
   fanStatus: boolean('fan_status'),
-  
+
   // Operational status
   heaterStatus: boolean('heater_status'),
   doorStatus: boolean('door_status'),
-  
+
   // Power metrics
   solarVoltage: decimal('solar_voltage', { precision: 5, scale: 2 }),
   batteryLevel: integer('battery_level'),
   batteryVoltage: decimal('battery_voltage', { precision: 5, scale: 2 }),
   powerConsumptionW: decimal('power_consumption_w', { precision: 7, scale: 2 }),
   chargingStatus: text('charging_status'),
-  
+
   // Preset info
   activePresetId: uuid('active_preset_id').references(() => presets.id),
-  
+
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
   dryerTimestampIdx: index('idx_sensor_readings_dryer_timestamp').on(table.dryerId, table.timestamp.desc()),
@@ -172,23 +172,23 @@ export const alerts = pgTable('alerts', {
 }));
 
 // Relations
-export const usersRelations = relations(users, ({ one }) => ({
+export const staffRelations = relations(staff, ({ one }) => ({
   profile: one(profiles),
 }));
 
 export const profilesRelations = relations(profiles, ({ one, many }) => ({
-  user: one(users, {
+  staff: one(staff, {
     fields: [profiles.id],
-    references: [users.id],
+    references: [staff.id],
   }),
-  userRoles: many(userRoles),
+  staffRoles: many(staffRoles),
   assignedDryers: many(dryers),
   acknowledgedAlerts: many(alerts),
 }));
 
-export const userRolesRelations = relations(userRoles, ({ one }) => ({
-  user: one(profiles, {
-    fields: [userRoles.userId],
+export const staffRolesRelations = relations(staffRoles, ({ one }) => ({
+  staff: one(profiles, {
+    fields: [staffRoles.staffId],
     references: [profiles.id],
   }),
 }));
@@ -197,7 +197,7 @@ export const regionsRelations = relations(regions, ({ many }) => ({
   dryers: many(dryers),
 }));
 
-export const dryerOwnersRelations = relations(dryerOwners, ({ many }) => ({
+export const farmersRelations = relations(farmers, ({ many }) => ({
   dryers: many(dryers),
 }));
 
@@ -211,9 +211,9 @@ export const dryersRelations = relations(dryers, ({ one, many }) => ({
     fields: [dryers.regionId],
     references: [regions.id],
   }),
-  owner: one(dryerOwners, {
-    fields: [dryers.ownerId],
-    references: [dryerOwners.id],
+  farmer: one(farmers, {
+    fields: [dryers.farmerId],
+    references: [farmers.id],
   }),
   currentPreset: one(presets, {
     fields: [dryers.currentPresetId],

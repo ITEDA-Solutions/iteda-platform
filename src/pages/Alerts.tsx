@@ -64,7 +64,7 @@ const Alerts = () => {
         .from("alerts")
         .select(`
           *,
-          dryer:dryers(dryer_id, serial_number, owner:dryer_owners(name)),
+          dryer:dryers(dryer_id, serial_number, farmer:farmers(name)),
           acknowledged_by_user:profiles!alerts_acknowledged_by_fkey(full_name)
         `)
         .order("created_at", { ascending: false });
@@ -77,7 +77,7 @@ const Alerts = () => {
         query = query.eq("status", statusTab);
       }
 
-      const { data, error } = await query;
+      const { data, error } = await query.execute();
       if (error) throw error;
       return data;
     },
@@ -86,17 +86,19 @@ const Alerts = () => {
   // Acknowledge alert mutation
   const acknowledgeMutation = useMutation({
     mutationFn: async ({ alertId, notes }: { alertId: string; notes: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+
       const { error } = await supabase
         .from("alerts")
+        .eq("id", alertId)
         .update({
           status: "acknowledged",
           acknowledged_at: new Date().toISOString(),
           acknowledged_by: user?.id,
           notes: notes || null,
         })
-        .eq("id", alertId);
+        .execute();
 
       if (error) throw error;
     },
@@ -116,11 +118,12 @@ const Alerts = () => {
     mutationFn: async (alertId: string) => {
       const { error } = await supabase
         .from("alerts")
+        .eq("id", alertId)
         .update({
           status: "resolved",
           resolved_at: new Date().toISOString(),
         })
-        .eq("id", alertId);
+        .execute();
 
       if (error) throw error;
     },
@@ -138,10 +141,11 @@ const Alerts = () => {
     mutationFn: async (alertId: string) => {
       const { error } = await supabase
         .from("alerts")
+        .eq("id", alertId)
         .update({
           status: "dismissed",
         })
-        .eq("id", alertId);
+        .execute();
 
       if (error) throw error;
     },
@@ -379,7 +383,7 @@ const Alerts = () => {
                                   variant="link"
                                   className="p-0 h-auto"
                                   onClick={() =>
-                                    router.push(`/dryer/${alert.dryer_id}`)
+                                    router.push(`/dashboard/dryer/${alert.dryer_id}`)
                                   }
                                 >
                                   {alert.dryer?.dryer_id || "Unknown"}

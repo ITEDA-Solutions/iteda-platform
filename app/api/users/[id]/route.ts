@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { users, profiles, userRoles } from '@/lib/schema';
+export const dynamic = 'force-dynamic';
+import { staff as users, profiles, staffRoles as userRoles } from '@/lib/schema';
 import { AuthService } from '@/lib/auth';
 import { eq } from 'drizzle-orm';
 
@@ -13,7 +14,7 @@ export async function PUT(
     // Verify admin access
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.replace('Bearer ', '');
-    
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -51,8 +52,8 @@ export async function PUT(
     // Update role if provided
     if (role !== undefined) {
       // Check if user role exists
-      const existingRole = await db.select().from(userRoles).where(eq(userRoles.userId, id)).limit(1);
-      
+      const existingRole = await db.select().from(userRoles).where(eq(userRoles.staffId, id)).limit(1);
+
       if (existingRole.length > 0) {
         // Update existing role
         await db
@@ -61,11 +62,11 @@ export async function PUT(
             role,
             ...(region !== undefined && { region }),
           })
-          .where(eq(userRoles.userId, id));
+          .where(eq(userRoles.staffId, id));
       } else {
         // Create new role
         await db.insert(userRoles).values({
-          userId: id,
+          staffId: id,
           role,
           region,
         });
@@ -85,7 +86,7 @@ export async function PUT(
       })
       .from(users)
       .leftJoin(profiles, eq(users.id, profiles.id))
-      .leftJoin(userRoles, eq(profiles.id, userRoles.userId))
+      .leftJoin(userRoles, eq(profiles.id, userRoles.staffId))
       .where(eq(users.id, id))
       .limit(1);
 
@@ -108,7 +109,7 @@ export async function DELETE(
     // Verify admin access
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.replace('Bearer ', '');
-    
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

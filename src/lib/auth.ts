@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db } from './db';
-import { users, profiles, userRoles } from './schema';
+import { staff as users, profiles, staffRoles as userRoles } from './schema';
 import { eq } from 'drizzle-orm';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-here';
@@ -155,7 +155,7 @@ export class AuthService {
       const [userRole] = await db
         .select()
         .from(userRoles)
-        .where(eq(userRoles.userId, userId))
+        .where(eq(userRoles.staffId, userId))
         .limit(1);
 
       return userRole?.role === role;
@@ -171,7 +171,7 @@ export class AuthService {
       const roles = await db
         .select()
         .from(userRoles)
-        .where(eq(userRoles.userId, userId));
+        .where(eq(userRoles.staffId, userId));
 
       return roles.some(role => ['admin', 'super_admin'].includes(role.role));
     } catch (error) {
