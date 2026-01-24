@@ -46,23 +46,41 @@ const DryerDetail = () => {
   const { data: dryer, isLoading: loadingDryer, error: dryerError } = useQuery({
     queryKey: ["dryer", id, session?.access_token],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch dryer without joins to avoid FK relationship issues
+      const { data: dryerData, error: dryerError } = await supabase
         .from("dryers")
-        .select(`
-          *,
-          owner:dryer_owners!dryers_owner_id_fkey(*),
-          region:regions!dryers_region_id_fkey(*),
-          current_preset:presets!fk_current_preset(*),
-          assigned_technician:profiles!dryers_assigned_technician_id_fkey(*)
-        `)
+        .select("*")
         .eq("id", id)
         .single();
 
-      if (error) {
-        console.error("Error fetching dryer:", error);
-        throw error;
+      if (dryerError) {
+        console.error("Error fetching dryer:", dryerError);
+        throw dryerError;
       }
-      return data;
+
+      // Fetch related data separately
+      const [ownerResult, regionResult, presetResult, technicianResult] = await Promise.all([
+        dryerData.owner_id
+          ? supabase.from("dryer_owners").select("*").eq("id", dryerData.owner_id).single()
+          : { data: null, error: null },
+        dryerData.region_id
+          ? supabase.from("regions").select("*").eq("id", dryerData.region_id).single()
+          : { data: null, error: null },
+        dryerData.current_preset_id
+          ? supabase.from("presets").select("*").eq("id", dryerData.current_preset_id).single()
+          : { data: null, error: null },
+        dryerData.assigned_technician_id
+          ? supabase.from("profiles").select("*").eq("id", dryerData.assigned_technician_id).single()
+          : { data: null, error: null },
+      ]);
+
+      return {
+        ...dryerData,
+        owner: ownerResult.data,
+        region: regionResult.data,
+        current_preset: presetResult.data,
+        assigned_technician: technicianResult.data,
+      };
     },
     enabled: !!id && !!session && !sessionLoading,
   });

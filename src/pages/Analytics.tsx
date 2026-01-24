@@ -20,15 +20,30 @@ const Analytics = () => {
   const { data: dryers } = useQuery({
     queryKey: ["dryers", selectedRegion],
     queryFn: async () => {
-      let query = supabase.from("dryers").select("*, regions!dryers_region_id_fkey(name)");
-      
+      // Fetch dryers without joins
+      let query = supabase.from("dryers").select("*");
+
       if (selectedRegion !== "all") {
         query = query.eq("region_id", selectedRegion);
       }
-      
-      const { data, error } = await query;
+
+      const { data: dryersData, error } = await query;
       if (error) throw error;
-      return data;
+
+      if (!dryersData || dryersData.length === 0) return [];
+
+      // Fetch regions separately
+      const regionIds = [...new Set(dryersData.map(d => d.region_id).filter(Boolean))];
+      const { data: regionsData } = regionIds.length > 0
+        ? await supabase.from("regions").select("*").in("id", regionIds)
+        : { data: [] };
+
+      const regionsMap = new Map((regionsData || []).map(r => [r.id, r]));
+
+      return dryersData.map(dryer => ({
+        ...dryer,
+        regions: dryer.region_id ? regionsMap.get(dryer.region_id) : null,
+      }));
     },
   });
 
@@ -36,22 +51,38 @@ const Analytics = () => {
   const { data: sensorData } = useQuery({
     queryKey: ["sensor-analytics", timeRange, selectedRegion],
     queryFn: async () => {
+      // Fetch sensor readings without joins
       let query = supabase
         .from("sensor_readings")
-        .select("*, dryers!sensor_readings_dryer_id_fkey(region_id)")
+        .select("*")
         .gte("timestamp", startDate.toISOString())
         .lte("timestamp", endDate.toISOString())
         .order("timestamp", { ascending: true });
 
-      const { data, error } = await query;
+      const { data: readingsData, error } = await query;
       if (error) throw error;
+
+      if (!readingsData || readingsData.length === 0) return [];
+
+      // Fetch dryers to get region info
+      const dryerIds = [...new Set(readingsData.map(r => r.dryer_id).filter(Boolean))];
+      const { data: dryersData } = dryerIds.length > 0
+        ? await supabase.from("dryers").select("id, region_id").in("id", dryerIds)
+        : { data: [] };
+
+      const dryersMap = new Map((dryersData || []).map(d => [d.id, d]));
+
+      const enrichedReadings = readingsData.map(reading => ({
+        ...reading,
+        dryers: reading.dryer_id ? dryersMap.get(reading.dryer_id) : null,
+      }));
 
       // Filter by region if selected
       if (selectedRegion !== "all") {
-        return data?.filter((reading) => reading.dryers?.region_id === selectedRegion);
+        return enrichedReadings.filter((reading) => reading.dryers?.region_id === selectedRegion);
       }
-      
-      return data;
+
+      return enrichedReadings;
     },
   });
 

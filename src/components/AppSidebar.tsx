@@ -36,7 +36,7 @@ export function AppSidebar() {
             {!isCollapsed && (
               <div className="flex items-center gap-2">
                 <img src="/iteda-logo.png" alt="ITEDA" className="h-6 w-auto" />
-                <span className="text-sm font-bold">ITEDA SOLUTIONS</span>
+                {/* <span className="text-sm font-bold">ITEDA SOLUTIONS</span> */}
               </div>
             )}
             {isCollapsed && (

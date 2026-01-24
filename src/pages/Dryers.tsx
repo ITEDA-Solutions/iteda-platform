@@ -53,14 +53,10 @@ const Dryers = () => {
   const { data: dryers, isLoading: loadingDryers } = useQuery({
     queryKey: ["dryers", statusFilter, regionFilter, searchQuery],
     queryFn: async () => {
+      // Fetch dryers without joins to avoid FK relationship issues
       let query = supabase
         .from("dryers")
-        .select(`
-          *,
-          owner:dryer_owners!dryers_owner_id_fkey(*),
-          region:regions!dryers_region_id_fkey(*),
-          current_preset:presets!fk_current_preset(*)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (statusFilter !== "all" && (statusFilter === "active" || statusFilter === "idle" || statusFilter === "offline" || statusFilter === "maintenance" || statusFilter === "decommissioned")) {
@@ -71,20 +67,53 @@ const Dryers = () => {
         query = query.eq("region_id", regionFilter);
       }
 
-      const { data, error } = await query;
+      const { data: dryersData, error } = await query;
       if (error) throw error;
+
+      if (!dryersData || dryersData.length === 0) return [];
+
+      // Get unique IDs for related data
+      const ownerIds = [...new Set(dryersData.map(d => d.owner_id).filter(Boolean))];
+      const regionIds = [...new Set(dryersData.map(d => d.region_id).filter(Boolean))];
+      const presetIds = [...new Set(dryersData.map(d => d.current_preset_id).filter(Boolean))];
+
+      // Fetch related data in parallel
+      const [ownersResult, regionsResult, presetsResult] = await Promise.all([
+        ownerIds.length > 0
+          ? supabase.from("dryer_owners").select("*").in("id", ownerIds)
+          : { data: [], error: null },
+        regionIds.length > 0
+          ? supabase.from("regions").select("*").in("id", regionIds)
+          : { data: [], error: null },
+        presetIds.length > 0
+          ? supabase.from("presets").select("*").in("id", presetIds)
+          : { data: [], error: null },
+      ]);
+
+      // Create lookup maps
+      const ownersMap = new Map((ownersResult.data || []).map(o => [o.id, o]));
+      const regionsMap = new Map((regionsResult.data || []).map(r => [r.id, r]));
+      const presetsMap = new Map((presetsResult.data || []).map(p => [p.id, p]));
+
+      // Combine data
+      const enrichedDryers = dryersData.map(dryer => ({
+        ...dryer,
+        owner: dryer.owner_id ? ownersMap.get(dryer.owner_id) || null : null,
+        region: dryer.region_id ? regionsMap.get(dryer.region_id) || null : null,
+        current_preset: dryer.current_preset_id ? presetsMap.get(dryer.current_preset_id) || null : null,
+      }));
 
       // Client-side search filtering
       if (searchQuery) {
-        return data?.filter(
+        return enrichedDryers.filter(
           (dryer) =>
             dryer.dryer_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
             dryer.serial_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            dryer.owner?.name.toLowerCase().includes(searchQuery.toLowerCase())
+            dryer.owner?.name?.toLowerCase().includes(searchQuery.toLowerCase())
         );
       }
 
-      return data;
+      return enrichedDryers;
     },
   });
 

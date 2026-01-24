@@ -78,7 +78,7 @@ const SensorMetrics = ({ latestReading }: SensorMetricsProps) => {
                   {metric.unit}
                 </span>
               </div>
-              {metric.title === "Fan Speed" && latestReading?.fan_status !== null && (
+              {metric.title === "Fan Speed" && latestReading && latestReading.fan_status !== null && (
                 <Badge
                   variant="secondary"
                   className={
@@ -90,7 +90,7 @@ const SensorMetrics = ({ latestReading }: SensorMetricsProps) => {
                   {latestReading.fan_status ? "Running" : "Off"}
                 </Badge>
               )}
-              {metric.title === "Heater Temperature" && latestReading?.heater_status !== null && (
+              {metric.title === "Heater Temperature" && latestReading && latestReading.heater_status !== null && (
                 <Badge
                   variant="secondary"
                   className={
