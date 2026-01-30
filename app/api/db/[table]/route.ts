@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 import {
-  staff,
+  users,
   profiles,
   staffRoles,
   regions,
@@ -16,12 +16,12 @@ import {
 // Map table names to schema objects
 const tableMap: Record<string, any> = {
   // New names
-  staff,
+  staff: users,
   staff_roles: staffRoles,
   farmers,
 
   // Legacy mappings for backward compatibility
-  users: staff,
+  users,
   user_roles: staffRoles,
   dryer_owners: farmers,
 

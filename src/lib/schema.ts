@@ -7,13 +7,8 @@ export const dryerStatusEnum = pgEnum('dryer_status', ['active', 'idle', 'offlin
 export const alertSeverityEnum = pgEnum('alert_severity', ['critical', 'warning', 'info']);
 export const alertStatusEnum = pgEnum('alert_status', ['active', 'acknowledged', 'resolved', 'dismissed']);
 
-<<<<<<< HEAD
-// Staff table (simplified for local auth)
-export const staff = pgTable('staff', {
-=======
 // Staff table (users with authentication)
 export const users = pgTable('staff', {
->>>>>>> 49d189a (now)
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
   password: text('password').notNull(), // hashed password
@@ -23,7 +18,7 @@ export const users = pgTable('staff', {
 
 // Profiles table
 export const profiles = pgTable('profiles', {
-  id: uuid('id').primaryKey().references(() => staff.id, { onDelete: 'cascade' }),
+  id: uuid('id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   email: text('email').notNull(),
   fullName: text('full_name'),
   phone: text('phone'),
@@ -32,11 +27,7 @@ export const profiles = pgTable('profiles', {
 });
 
 // Staff roles table
-<<<<<<< HEAD
 export const staffRoles = pgTable('staff_roles', {
-=======
-export const userRoles = pgTable('staff_roles', {
->>>>>>> 49d189a (now)
   id: uuid('id').primaryKey().defaultRandom(),
   staffId: uuid('staff_id').references(() => profiles.id, { onDelete: 'cascade' }).notNull(),
   role: appRoleEnum('role').notNull(),
@@ -54,7 +45,6 @@ export const regions = pgTable('regions', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-<<<<<<< HEAD
 // Dryer assignments table (for field technicians)
 export const dryerAssignments = pgTable('dryer_assignments', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -69,12 +59,8 @@ export const dryerAssignments = pgTable('dryer_assignments', {
   dryerIdx: index('idx_assignments_dryer').on(table.dryerId),
 }));
 
-// Farmers table
-export const farmers = pgTable('farmers', {
-=======
 // Farmers table (dryer owners)
-export const dryerOwners = pgTable('farmers', {
->>>>>>> 49d189a (now)
+export const farmers = pgTable('farmers', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   phone: text('phone'),
@@ -115,11 +101,7 @@ export const dryers = pgTable('dryers', {
   locationLongitude: decimal('location_longitude', { precision: 11, scale: 8 }),
   locationAddress: text('location_address'),
   regionId: uuid('region_id').references(() => regions.id),
-<<<<<<< HEAD
   farmerId: uuid('farmer_id').references(() => farmers.id),
-=======
-  ownerId: uuid('farmer_id').references(() => dryerOwners.id),
->>>>>>> 49d189a (now)
 
   // Hardware configuration
   numTempSensors: integer('num_temp_sensors').default(3),
@@ -204,14 +186,14 @@ export const alerts = pgTable('alerts', {
 }));
 
 // Relations
-export const staffRelations = relations(staff, ({ one }) => ({
+export const usersRelations = relations(users, ({ one }) => ({
   profile: one(profiles),
 }));
 
 export const profilesRelations = relations(profiles, ({ one, many }) => ({
-  staff: one(staff, {
+  user: one(users, {
     fields: [profiles.id],
-    references: [staff.id],
+    references: [users.id],
   }),
   staffRoles: many(staffRoles),
   assignedDryers: many(dryers),

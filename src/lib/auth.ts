@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db } from './db';
-import { staff as users, profiles, staffRoles as userRoles, dryerAssignments, dryers } from './schema';
+import { users, profiles, staffRoles as userRoles, dryerAssignments, dryers } from './schema';
 import { eq } from 'drizzle-orm';
 import { UserRole } from './permissions';
 
