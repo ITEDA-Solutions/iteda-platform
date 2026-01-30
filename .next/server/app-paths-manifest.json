@@ -1,4 +1,8 @@
 {
-  "/page": "app/page.js",
-  "/auth/page": "app/auth/page.js"
+  "/auth/page": "app/auth/page.js",
+  "/api/db/[table]/route": "app/api/db/[table]/route.js",
+  "/api/auth/session/route": "app/api/auth/session/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/alerts/page": "app/dashboard/alerts/page.js",
+  "/dashboard/presets/page": "app/dashboard/presets/page.js"
 }

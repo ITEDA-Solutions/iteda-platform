@@ -45,6 +45,20 @@ export const regions = pgTable('regions', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+// Dryer assignments table (for field technicians)
+export const dryerAssignments = pgTable('dryer_assignments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  technicianId: uuid('technician_id').references(() => profiles.id, { onDelete: 'cascade' }).notNull(),
+  dryerId: uuid('dryer_id').references(() => dryers.id, { onDelete: 'cascade' }).notNull(),
+  assignedAt: timestamp('assigned_at').notNull().defaultNow(),
+  assignedBy: uuid('assigned_by').references(() => profiles.id),
+  notes: text('notes'),
+}, (table) => ({
+  uniqueAssignment: uniqueIndex('unique_technician_dryer').on(table.technicianId, table.dryerId),
+  technicianIdx: index('idx_assignments_technician').on(table.technicianId),
+  dryerIdx: index('idx_assignments_dryer').on(table.dryerId),
+}));
+
 // Farmers table
 export const farmers = pgTable('farmers', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -245,6 +259,21 @@ export const alertsRelations = relations(alerts, ({ one }) => ({
   }),
   acknowledgedBy: one(profiles, {
     fields: [alerts.acknowledgedBy],
+    references: [profiles.id],
+  }),
+}));
+
+export const dryerAssignmentsRelations = relations(dryerAssignments, ({ one }) => ({
+  technician: one(profiles, {
+    fields: [dryerAssignments.technicianId],
+    references: [profiles.id],
+  }),
+  dryer: one(dryers, {
+    fields: [dryerAssignments.dryerId],
+    references: [dryers.id],
+  }),
+  assignedBy: one(profiles, {
+    fields: [dryerAssignments.assignedBy],
     references: [profiles.id],
   }),
 }));

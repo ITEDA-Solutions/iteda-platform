@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Plus, Edit, Trash2, Shield, Users as UsersIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { PermissionGuard } from "@/components/PermissionGuard";
 import {
   Table,
   TableBody,
@@ -98,13 +99,13 @@ const Staff = () => {
 
   const fetchStaff = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       if (!token) {
         router.push('/auth');
         return;
       }
 
-      const response = await fetch('/api/staff', {
+      const response = await fetch('/api/users', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -133,13 +134,13 @@ const Staff = () => {
 
   const createStaffMember = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       if (!token) {
         router.push('/auth');
         return;
       }
 
-      const response = await fetch('/api/staff', {
+      const response = await fetch('/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -182,13 +183,13 @@ const Staff = () => {
     if (!editingStaffMember) return;
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       if (!token) {
         router.push('/auth');
         return;
       }
 
-      const response = await fetch(`/api/staff/${editingStaffMember.id}`, {
+      const response = await fetch(`/api/users/${editingStaffMember.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -227,13 +228,13 @@ const Staff = () => {
 
   const deleteStaffMember = async (userId: string, userEmail: string) => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       if (!token) {
         router.push('/auth');
         return;
       }
 
-      const response = await fetch(`/api/staff/${userId}`, {
+      const response = await fetch(`/api/users/${userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -294,7 +295,8 @@ const Staff = () => {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <PermissionGuard allowedRoles={['super_admin']} showError={true}>
+      <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -622,7 +624,8 @@ const Staff = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </PermissionGuard>
   );
 };
 

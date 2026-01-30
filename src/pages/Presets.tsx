@@ -44,8 +44,7 @@ const Presets = () => {
       const { data, error } = await supabase
         .from("presets")
         .select("*")
-        .order("created_at", { ascending: false })
-        .execute();
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data;
@@ -54,7 +53,7 @@ const Presets = () => {
 
   const createPreset = useMutation({
     mutationFn: async (data: PresetFormData) => {
-      const { error } = await supabase.from("presets").insert([data]).execute();
+      const { error } = await supabase.from("presets").insert([data]);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -70,7 +69,10 @@ const Presets = () => {
 
   const updatePreset = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<PresetFormData> }) => {
-      const { error } = await supabase.from("presets").eq("id", id).update(data).execute();
+      const { error } = await supabase
+        .from("presets")
+        .update(data)
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -86,7 +88,10 @@ const Presets = () => {
 
   const deletePreset = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("presets").eq("id", id).delete().execute();
+      const { error } = await supabase
+        .from("presets")
+        .delete()
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -124,13 +129,13 @@ const Presets = () => {
   };
 
   const filteredPresets = presets?.filter((preset) => {
-    const matchesSearch = preset.crop_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      preset.preset_id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (preset.crop_type?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (preset.preset_id?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     const matchesRegion = !filterRegion || preset.region === filterRegion;
     return matchesSearch && matchesRegion;
   });
 
-  const regions = Array.from(new Set(presets?.map((p: any) => p.region) || [])) as string[];
+  const regions = Array.from(new Set(presets?.map((p: any) => p.region).filter(Boolean) || [])) as string[];
 
   if (roleLoading) {
     return (

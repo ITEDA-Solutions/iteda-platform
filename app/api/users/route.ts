@@ -5,28 +5,14 @@ import { staff as users, profiles, staffRoles as userRoles } from '@/lib/schema'
 import { AuthService } from '@/lib/auth';
 import { eq, sql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import { validateUserManagementAccess } from '@/lib/rbac-middleware';
 
 // Get all users with their profiles and roles
 export async function GET(request: NextRequest) {
   try {
-    // Verify admin access
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const currentUser = await AuthService.verifyToken(token);
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const isAdmin = await AuthService.isAdmin(currentUser.id);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    // Verify super admin access (only super admins can manage users)
+    const { user: currentUser, error } = await validateUserManagementAccess(request);
+    if (error) return error;
 
     // Get all users with their profiles and roles
     const allUsers = await db
@@ -58,23 +44,9 @@ export async function GET(request: NextRequest) {
 // Create new user
 export async function POST(request: NextRequest) {
   try {
-    // Verify admin access
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const currentUser = await AuthService.verifyToken(token);
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const isAdmin = await AuthService.isAdmin(currentUser.id);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    // Verify super admin access (only super admins can create users)
+    const { user: currentUser, error } = await validateUserManagementAccess(request);
+    if (error) return error;
 
     const { email, password, fullName, phone, role, region } = await request.json();
 

@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 import { staff as users, profiles, staffRoles as userRoles } from '@/lib/schema';
 import { AuthService } from '@/lib/auth';
 import { eq } from 'drizzle-orm';
+import { validateUserManagementAccess } from '@/lib/rbac-middleware';
 
 // Update user profile and role
 export async function PUT(
@@ -11,23 +12,9 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Verify admin access
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const currentUser = await AuthService.verifyToken(token);
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const isAdmin = await AuthService.isAdmin(currentUser.id);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    // Verify super admin access (only super admins can update users)
+    const { user: currentUser, error } = await validateUserManagementAccess(request);
+    if (error) return error;
 
     const { id } = params;
     const { fullName, phone, role, region } = await request.json();
@@ -106,23 +93,9 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Verify admin access
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const currentUser = await AuthService.verifyToken(token);
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const isAdmin = await AuthService.isAdmin(currentUser.id);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    // Verify super admin access (only super admins can delete users)
+    const { user: currentUser, error } = await validateUserManagementAccess(request);
+    if (error) return error;
 
     const { id } = params;
 
