@@ -1,4 +1,4 @@
-// File: /home/esther-zawadi/Downloads/iteda-platform/app/auth/page.tsx
+// File: /home/esther-zawadi/Downloads/iteda-platform-developer (1)/app/auth/page.tsx
 import * as entry from '../../../../app/auth/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
