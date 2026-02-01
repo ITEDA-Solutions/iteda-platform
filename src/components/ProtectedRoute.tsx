@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
@@ -10,57 +9,59 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const [user, setUser] = useState<any>(null);
-  const [session, setSession] = useState<any>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     let mounted = true;
 
-    // Check for existing session first
-    const checkSession = async () => {
+    const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Check for JWT token in localStorage
+        const token = localStorage.getItem('token');
         
-        if (mounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-          setLoading(false);
-          
-          // Only redirect if definitely no session
-          if (!session) {
+        if (!token) {
+          console.log('No token found, redirecting to auth');
+          if (mounted) {
+            router.push("/auth");
+          }
+          return;
+        }
+
+        // Verify token with API
+        const res = await fetch('/api/auth/session', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (res.ok) {
+          console.log('Token valid, user authenticated');
+          if (mounted) {
+            setIsAuthenticated(true);
+            setLoading(false);
+          }
+        } else {
+          console.log('Token invalid, redirecting to auth');
+          localStorage.removeItem('token');
+          if (mounted) {
             router.push("/auth");
           }
         }
       } catch (error) {
-        console.error("Session check error:", error);
+        console.error("Auth check error:", error);
         if (mounted) {
-          setLoading(false);
+          localStorage.removeItem('token');
+          router.push("/auth");
         }
       }
     };
 
-    checkSession();
-
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (mounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-          
-          // Redirect to auth if session is lost
-          if (!session && event === 'SIGNED_OUT') {
-            router.push("/auth");
-          }
-        }
-      }
-    );
+    checkAuth();
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
     };
   }, [router]);
 
@@ -72,7 +73,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  if (!user || !session) {
+  if (!isAuthenticated) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

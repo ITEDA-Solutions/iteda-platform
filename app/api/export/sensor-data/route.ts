@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { validateExportAccess, canAccessDryer } from '@/lib/rbac-middleware';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,6 +10,10 @@ const supabase = createClient(
 // GET - Export sensor data as CSV
 export async function GET(request: NextRequest) {
   try {
+    // Validate export permissions (field technicians cannot export)
+    const { user, error: authError } = await validateExportAccess(request);
+    if (authError) return authError;
+
     const { searchParams } = new URL(request.url);
     const dryerId = searchParams.get('dryer_id');
     const startDate = searchParams.get('start_date');
@@ -33,6 +38,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Dryer not found' },
         { status: 404 }
+      );
+    }
+
+    // Check if user can access this dryer
+    const hasAccess = await canAccessDryer(user.id, dryer.id);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'You do not have access to this dryer' },
+        { status: 403 }
       );
     }
 

@@ -1,5 +1,7 @@
-import Dashboard from '../../pages/Dashboard'
+'use client'
+
+import { MainDashboard } from '@/components/MainDashboard'
 
 export default function DashboardPage() {
-  return <Dashboard />
+  return <MainDashboard />
 }
