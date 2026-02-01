@@ -4,6 +4,9 @@ import * as schema from './schema';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes('supabase.com') 
+    ? { rejectUnauthorized: false }
+    : false,
   // Alternative configuration if you prefer individual env vars:
   // host: process.env.DB_HOST,
   // port: parseInt(process.env.DB_PORT || '5432'),

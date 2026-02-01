@@ -16,7 +16,10 @@
     "db:seed-dryers": "node scripts/seed-dryers.js",
     "db:seed-all": "npm run db:seed && npm run db:seed-dryers",
     "db:summary": "node scripts/database-summary.js",
-    "test:rbac": "node scripts/test-rbac.js"
+    "test:rbac": "node scripts/test-rbac.js",
+    "supabase:migrate": "node scripts/migrate-to-supabase.js",
+    "supabase:test": "node scripts/test-db.js",
+    "supabase:check": "node scripts/check-supabase-schema.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
