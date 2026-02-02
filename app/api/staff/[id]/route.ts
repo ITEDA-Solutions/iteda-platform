@@ -38,12 +38,12 @@ export async function PUT(
       }
 
       const { error: roleError } = await supabase
-        .from('user_roles')
+        .from('staff_roles')
         .update({
           role: role,
-          region_id: region_id !== undefined ? region_id : undefined,
+          region: region_id !== undefined ? region_id : undefined,
         })
-        .eq('user_id', params.id);
+        .eq('staff_id', params.id);
 
       if (roleError) {
         throw new Error(`Failed to update role: ${roleError.message}`);
@@ -71,9 +71,9 @@ export async function DELETE(
   try {
     // Delete user role
     const { error: roleError } = await supabase
-      .from('user_roles')
+      .from('staff_roles')
       .delete()
-      .eq('user_id', params.id);
+      .eq('staff_id', params.id);
 
     if (roleError) {
       console.error('Error deleting user role:', roleError);

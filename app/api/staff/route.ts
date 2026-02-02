@@ -62,11 +62,11 @@ export async function POST(request: NextRequest) {
 
     // Assign role
     const { error: roleError } = await supabase
-      .from('user_roles')
+      .from('staff_roles')
       .insert({
-        user_id: authData.user.id,
+        staff_id: authData.user.id,
         role: role,
-        region_id: region_id || null,
+        region: region_id,
       });
 
     if (roleError) {
