@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RefreshCw, Search, UserPlus, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { StaffForm } from './StaffForm';
+import { DeleteConfirmDialog } from './DeleteConfirmDialog';
 
 interface Profile {
   id: string;
@@ -34,6 +36,9 @@ export default function StaffManagement() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [formOpen, setFormOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<any>(null);
   const { toast } = useToast();
 
   const fetchStaff = async () => {
@@ -127,7 +132,7 @@ export default function StaffManagement() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button>
+          <Button onClick={() => { setSelectedStaff(null); setFormOpen(true); }}>
             <UserPlus className="h-4 w-4 mr-2" />
             Add Staff
           </Button>
@@ -239,10 +244,34 @@ export default function StaffManagement() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setSelectedStaff({
+                                id: member.profile.id,
+                                email: member.profile.email,
+                                full_name: member.profile.full_name,
+                                role: member.role?.role,
+                                region_id: member.role?.region,
+                              });
+                              setFormOpen(true);
+                            }}
+                          >
                             <Edit className="h-3 w-3" />
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setSelectedStaff({
+                                id: member.profile.id,
+                                email: member.profile.email,
+                                full_name: member.profile.full_name,
+                              });
+                              setDeleteOpen(true);
+                            }}
+                          >
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
@@ -255,6 +284,41 @@ export default function StaffManagement() {
           )}
         </CardContent>
       </Card>
+
+      <StaffForm
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        staff={selectedStaff}
+        onSuccess={fetchStaff}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete Staff Member"
+        description="Are you sure you want to delete this staff member? This will remove their account and all associated data."
+        itemName={selectedStaff ? `${selectedStaff.full_name} (${selectedStaff.email})` : ''}
+        onConfirm={async () => {
+          if (!selectedStaff) return;
+          
+          const response = await fetch(`/api/staff/${selectedStaff.id}`, {
+            method: 'DELETE',
+          });
+          
+          const result = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(result.error || 'Failed to delete staff member');
+          }
+          
+          toast({
+            title: 'Success',
+            description: 'Staff member deleted successfully',
+          });
+          
+          fetchStaff();
+        }}
+      />
     </div>
   );
 }

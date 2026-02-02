@@ -1,14 +1,25 @@
 'use client'
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, Search, MapPin, Battery, Signal, AlertTriangle, Clock, Plus } from 'lucide-react';
+import { 
+  RefreshCw, 
+  Search, 
+  MapPin, 
+  Battery, 
+  Signal, 
+  AlertTriangle, 
+  Clock,
+  Plus,
+  Download
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import Link from 'next/link';
+import { exportToCSV, formatDryerDataForExport } from '@/lib/export-utils';
 
 interface Dryer {
   id: string;
@@ -148,6 +159,17 @@ export default function DryersList() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            onClick={() => {
+              const formattedData = formatDryerDataForExport(dryers);
+              exportToCSV(formattedData, `dryers-export-${new Date().toISOString().split('T')[0]}`);
+            }}
+            variant="outline"
+            disabled={dryers.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
           <Link href="/dashboard/dryers/register">
             <Button className="bg-green-600 hover:bg-green-700">
               <Plus className="h-4 w-4 mr-2" />

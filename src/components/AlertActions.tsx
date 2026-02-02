@@ -83,35 +83,27 @@ export function AlertActions({ alertId, dryerId, status, onActionComplete }: Ale
       const response = await fetch(`/api/alerts/${alertId}/resolve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: user?.id,
-          comment: comment || undefined 
+        body: JSON.stringify({
+          resolved_by: 'current_user', // TODO: Get from auth context
+          resolution_notes: comment,
         }),
-      })
+      });
 
-      const data = await response.json()
+      const result = await response.json();
 
-      if (data.error) {
-        throw new Error(data.error)
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to resolve alert');
       }
 
-      toast({
-        title: 'Alert Resolved',
-        description: 'The alert has been marked as resolved.',
-      })
-
-      setComment('')
+      toast.success('Alert resolved successfully');
+      setComment('');
       onActionComplete?.()
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to resolve alert',
-        variant: 'destructive',
-      })
+      toast.error(error.message || 'Failed to resolve alert');
     } finally {
       setIsResolving(false)
     }
-  }
+  };
 
   const handleDismiss = async () => {
     setIsDismissing(true)

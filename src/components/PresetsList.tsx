@@ -5,8 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Plus } from 'lucide-react';
+import { RefreshCw, Plus, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { PresetForm } from './PresetForm';
+import { DeleteConfirmDialog } from './DeleteConfirmDialog';
 
 interface Preset {
   id: string;
@@ -24,6 +26,9 @@ interface Preset {
 export default function PresetsList() {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [loading, setLoading] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<Preset | null>(null);
   const { toast } = useToast();
 
   const fetchPresets = async () => {
@@ -76,7 +81,7 @@ export default function PresetsList() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button>
+          <Button onClick={() => { setSelectedPreset(null); setFormOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
             New Preset
           </Button>
@@ -158,9 +163,24 @@ export default function PresetsList() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Button variant="outline" size="sm">
-                          Edit
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => { setSelectedPreset(preset); setFormOpen(true); }}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => { setSelectedPreset(preset); setDeleteOpen(true); }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Delete
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -170,6 +190,41 @@ export default function PresetsList() {
           )}
         </CardContent>
       </Card>
+
+      <PresetForm
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        preset={selectedPreset}
+        onSuccess={fetchPresets}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete Preset"
+        description="Are you sure you want to delete this preset? This action cannot be undone."
+        itemName={selectedPreset ? `${selectedPreset.crop_type} - ${selectedPreset.region}` : ''}
+        onConfirm={async () => {
+          if (!selectedPreset) return;
+          
+          const response = await fetch(`/api/presets/${selectedPreset.id}`, {
+            method: 'DELETE',
+          });
+          
+          const result = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(result.error || 'Failed to delete preset');
+          }
+          
+          toast({
+            title: 'Success',
+            description: 'Preset deleted successfully',
+          });
+          
+          fetchPresets();
+        }}
+      />
     </div>
   );
 }

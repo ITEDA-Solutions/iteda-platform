@@ -21,10 +21,14 @@ import {
   Thermometer,
   Droplets,
   Wind,
-  Zap
+  Zap,
+  Edit,
+  Trash2
 } from 'lucide-react'
 import Link from 'next/link'
 import { useToast } from '@/hooks/use-toast'
+import { DryerEditForm } from '@/components/DryerEditForm'
+import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog'
 
 interface DryerDetail {
   id: string
@@ -58,6 +62,8 @@ export default function DryerDetailPage() {
   const { toast } = useToast()
   const [dryer, setDryer] = useState<DryerDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   useEffect(() => {
     if (params.id) {
@@ -150,13 +156,17 @@ export default function DryerDetailPage() {
           {getStatusBadge(dryer.status)}
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setEditOpen(true)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Dryer
+          </Button>
+          <Button variant="outline" onClick={() => setDeleteOpen(true)}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete
+          </Button>
           <Button variant="outline">
             <Download className="h-4 w-4 mr-2" />
             Export Data
-          </Button>
-          <Button variant="outline">
-            <FileText className="h-4 w-4 mr-2" />
-            Generate Report
           </Button>
         </div>
       </div>
@@ -429,6 +439,39 @@ export default function DryerDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <DryerEditForm
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        dryer={dryer}
+        onSuccess={fetchDryerDetails}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete Dryer"
+        description="Are you sure you want to delete this dryer? This will permanently remove all associated data including sensor readings and alerts."
+        itemName={`${dryer.dryer_id} (${dryer.serial_number})`}
+        onConfirm={async () => {
+          const response = await fetch(`/api/dryers/${dryer.id}`, {
+            method: 'DELETE',
+          });
+          
+          const result = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(result.error || 'Failed to delete dryer');
+          }
+          
+          toast({
+            title: 'Success',
+            description: 'Dryer deleted successfully',
+          });
+          
+          router.push('/dashboard/dryers');
+        }}
+      />
     </div>
   )
 }
