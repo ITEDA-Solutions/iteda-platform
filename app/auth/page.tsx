@@ -83,6 +83,7 @@ export default function AuthPage() {
           data: {
             full_name: fullName,
           },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
 
@@ -96,7 +97,11 @@ export default function AuthPage() {
         router.push('/dashboard')
         router.refresh()
       } else if (data.user && !data.session) {
-        toast.info('Please check your email to verify your account')
+        // Email confirmation is required
+        toast.info('Please check your email to verify your account', {
+          duration: 5000,
+        })
+        console.log('Email verification required for:', email)
       } else {
         throw new Error('Sign up failed')
       }
