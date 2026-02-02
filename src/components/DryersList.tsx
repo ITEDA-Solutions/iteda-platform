@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, Search, MapPin, Battery, Signal, AlertTriangle, Clock } from 'lucide-react';
+import { RefreshCw, Search, MapPin, Battery, Signal, AlertTriangle, Clock, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
