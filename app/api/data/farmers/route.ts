@@ -6,35 +6,30 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// GET - Fetch all dryers from Supabase
+// GET - Fetch all farmers/owners from Supabase
 export async function GET(request: NextRequest) {
   try {
-    const { data: dryers, error } = await supabase
-      .from('dryers')
-      .select(`
-        *,
-        owner:farmers!dryers_owner_id_fkey(name, phone, email),
-        region:regions!dryers_region_id_fkey(name, code),
-        current_preset:presets!fk_current_preset(preset_id, crop_type, region)
-      `)
+    const { data: farmers, error } = await supabase
+      .from('farmers')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching dryers:', error);
+      console.error('Error fetching farmers:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch dryers', details: error.message },
+        { error: 'Failed to fetch farmers', details: error.message },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      count: dryers?.length || 0,
-      dryers: dryers || [],
+      count: farmers?.length || 0,
+      farmers: farmers || [],
     });
 
   } catch (error: any) {
-    console.error('Dryers fetch error:', error);
+    console.error('Farmers fetch error:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }

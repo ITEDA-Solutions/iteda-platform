@@ -35,16 +35,16 @@ export const usePermissions = () => {
     },
   });
 
-  // Get user role from staff_roles table
+  // Get user role from user_roles table
   const { data: userRole } = useQuery({
     queryKey: ["userRole", session?.user?.id],
     queryFn: async () => {
       if (!session?.user?.id) return null;
 
       const { data, error } = await supabase
-        .from("staff_roles")
+        .from("user_roles")
         .select("role, region")
-        .eq("staff_id", session.user.id)
+        .eq("user_id", session.user.id)
         .maybeSingle();
 
       if (error) {
@@ -154,9 +154,9 @@ export const useCanAccessDryer = (dryerId?: string) => {
       // For regional managers, check if dryer is in their region
       if (role === 'regional_manager') {
         const { data: roleData } = await supabase
-          .from('staff_roles')
+          .from('user_roles')
           .select('region')
-          .eq('staff_id', user.id)
+          .eq('user_id', user.id)
           .single();
 
         if (!roleData?.region) return false;

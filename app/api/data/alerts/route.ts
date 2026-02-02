@@ -17,8 +17,7 @@ export async function GET(request: NextRequest) {
       .from('alerts')
       .select(`
         *,
-        dryer:dryers(dryer_id, serial_number, location_address),
-        acknowledged_by_user:profiles(full_name, email)
+        dryer:dryers(dryer_id, serial_number, location_address)
       `)
       .order('created_at', { ascending: false });
 
