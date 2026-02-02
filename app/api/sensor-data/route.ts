@@ -41,6 +41,27 @@ interface SensorDataPayload {
   data_quality_score?: number;
 }
 
+// Validation ranges
+const VALIDATION_RANGES = {
+  temperature: { min: -20, max: 100 }, // °C
+  humidity: { min: 0, max: 100 }, // %
+  batteryLevel: { min: 0, max: 100 }, // %
+  batteryVoltage: { min: 8, max: 16 }, // V (typical 12V system)
+  solarVoltage: { min: 0, max: 30 }, // V
+  fanSpeedRpm: { min: 0, max: 3000 }, // RPM
+};
+
+function validateSensorValue(value: number | undefined, range: { min: number; max: number }, fieldName: string): { valid: boolean; error?: string } {
+  if (value === undefined || value === null) return { valid: true };
+  if (value < range.min || value > range.max) {
+    return { 
+      valid: false, 
+      error: `${fieldName} out of range: ${value} (expected ${range.min}-${range.max})` 
+    };
+  }
+  return { valid: true };
+}
+
 // POST - Receive sensor data from IoT devices
 export async function POST(request: NextRequest) {
   try {
@@ -50,6 +71,32 @@ export async function POST(request: NextRequest) {
     if (!payload.dryer_id) {
       return NextResponse.json(
         { error: 'dryer_id is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate sensor values
+    const validations = [
+      validateSensorValue(payload.chamber_temp, VALIDATION_RANGES.temperature, 'chamber_temp'),
+      validateSensorValue(payload.ambient_temp, VALIDATION_RANGES.temperature, 'ambient_temp'),
+      validateSensorValue(payload.heater_temp, VALIDATION_RANGES.temperature, 'heater_temp'),
+      validateSensorValue(payload.internal_humidity, VALIDATION_RANGES.humidity, 'internal_humidity'),
+      validateSensorValue(payload.external_humidity, VALIDATION_RANGES.humidity, 'external_humidity'),
+      validateSensorValue(payload.battery_level, VALIDATION_RANGES.batteryLevel, 'battery_level'),
+      validateSensorValue(payload.battery_voltage, VALIDATION_RANGES.batteryVoltage, 'battery_voltage'),
+      validateSensorValue(payload.solar_voltage, VALIDATION_RANGES.solarVoltage, 'solar_voltage'),
+      validateSensorValue(payload.fan_speed_rpm, VALIDATION_RANGES.fanSpeedRpm, 'fan_speed_rpm'),
+    ];
+
+    const invalidFields = validations.filter(v => !v.valid);
+    if (invalidFields.length > 0) {
+      console.warn('Sensor data validation failed:', invalidFields.map(f => f.error).join(', '));
+      return NextResponse.json(
+        { 
+          error: 'Sensor data validation failed', 
+          details: invalidFields.map(f => f.error),
+          rejectedValues: true,
+        },
         { status: 400 }
       );
     }
