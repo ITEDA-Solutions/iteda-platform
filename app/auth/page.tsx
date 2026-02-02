@@ -74,37 +74,28 @@ export default function AuthPage() {
     const fullName = formData.get('fullName') as string
 
     try {
-      console.log('Attempting Supabase sign up...', { email, fullName })
+      console.log('Creating account via API...', { email, fullName })
       
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
+      // Use our API route which auto-confirms users (no email verification needed)
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, fullName }),
       })
 
-      if (error) {
-        throw error
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Sign up failed')
       }
 
-      if (data.session) {
-        toast.success('Account created successfully!')
-        console.log('Supabase account created, redirecting to dashboard...')
-        router.push('/dashboard')
-        router.refresh()
-      } else if (data.user && !data.session) {
-        // Email confirmation is required
-        toast.info('Please check your email to verify your account', {
-          duration: 5000,
-        })
-        console.log('Email verification required for:', email)
-      } else {
-        throw new Error('Sign up failed')
-      }
+      // User is auto-confirmed and signed in!
+      toast.success('Account created successfully! 🎉')
+      console.log('✅ Account created and signed in:', email)
+      
+      // Redirect to dashboard
+      router.push('/dashboard')
+      router.refresh()
     } catch (error: any) {
       console.error('Sign up error:', error)
       toast.error(error.message || 'Sign up failed')
