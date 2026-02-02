@@ -12,7 +12,7 @@
     "db:studio": "drizzle-kit studio",
     "db:migrate": "drizzle-kit migrate",
     "db:test": "node scripts/test-db.js",
-    "db:seed": "node scripts/seed-users.js",
+    "db:seed": "node scripts/seed-users-supabase.js",
     "db:seed-dryers": "node scripts/seed-dryers.js",
     "db:seed-all": "npm run db:seed && npm run db:seed-dryers",
     "db:summary": "node scripts/database-summary.js",
