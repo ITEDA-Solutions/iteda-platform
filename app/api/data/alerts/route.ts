@@ -15,10 +15,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('alerts')
-      .select(`
-        *,
-        dryer:dryers(dryer_id, serial_number, location_address)
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (status) {

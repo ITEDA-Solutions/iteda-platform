@@ -15,37 +15,59 @@ export default function DataViewer() {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [sensorReadings, setSensorReadings] = useState<any[]>([]);
   const [presets, setPresets] = useState<any[]>([]);
-  const [farmers, setFarmers] = useState<any[]>([]);
+  const [owners, setOwners] = useState<any[]>([]);
+  const [regions, setRegions] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
+  const [staffRoles, setStaffRoles] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
   const { toast } = useToast();
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [dryersRes, alertsRes, readingsRes, presetsRes, farmersRes] = await Promise.all([
+      const [
+        dryersRes, alertsRes, readingsRes, presetsRes, ownersRes,
+        regionsRes, profilesRes, rolesRes, assignmentsRes
+      ] = await Promise.all([
         fetch('/api/data/dryers'),
-        fetch('/api/data/alerts?status=active'),
+        fetch('/api/data/alerts'),
         fetch('/api/data/sensor-readings?limit=50'),
         fetch('/api/data/presets'),
         fetch('/api/data/farmers'),
+        fetch('/api/data/regions'),
+        fetch('/api/data/profiles'),
+        fetch('/api/data/staff-roles'),
+        fetch('/api/data/dryer-assignments'),
       ]);
 
-      const [dryersData, alertsData, readingsData, presetsData, farmersData] = await Promise.all([
+      const [
+        dryersData, alertsData, readingsData, presetsData, ownersData,
+        regionsData, profilesData, rolesData, assignmentsData
+      ] = await Promise.all([
         dryersRes.json(),
         alertsRes.json(),
         readingsRes.json(),
         presetsRes.json(),
-        farmersRes.json(),
+        ownersRes.json(),
+        regionsRes.json(),
+        profilesRes.json(),
+        rolesRes.json(),
+        assignmentsRes.json(),
       ]);
 
       setDryers(dryersData.dryers || []);
       setAlerts(alertsData.alerts || []);
       setSensorReadings(readingsData.readings || []);
       setPresets(presetsData.presets || []);
-      setFarmers(farmersData.farmers || []);
+      setOwners(ownersData.owners || ownersData.farmers || []);
+      setRegions(regionsData.regions || []);
+      setProfiles(profilesData.profiles || []);
+      setStaffRoles(rolesData.roles || []);
+      setAssignments(assignmentsData.assignments || []);
 
       toast({
-        title: 'Data Loaded',
-        description: `Loaded ${dryersData.count} dryers, ${alertsData.count} alerts, ${readingsData.count} readings`,
+        title: 'Data Loaded Successfully',
+        description: `Loaded ${dryersData.count || 0} dryers, ${alertsData.count || 0} alerts, ${presetsData.count || 0} presets, ${regionsData.count || 0} regions`,
       });
     } catch (error) {
       toast({
@@ -96,7 +118,7 @@ export default function DataViewer() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Dryers</CardTitle>
@@ -107,18 +129,10 @@ export default function DataViewer() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
+            <CardTitle className="text-sm font-medium">Alerts</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{alerts.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Sensor Readings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{sensorReadings.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -131,36 +145,59 @@ export default function DataViewer() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Farmers</CardTitle>
+            <CardTitle className="text-sm font-medium">Regions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{farmers.length}</div>
+            <div className="text-2xl font-bold">{regions.length}</div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Owners</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{owners.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Profiles</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{profiles.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Staff Roles</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{staffRoles.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Assignments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{assignments.length}</div>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="dryers" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="dryers">
-            <Database className="h-4 w-4 mr-2" />
-            Dryers ({dryers.length})
-          </TabsTrigger>
-          <TabsTrigger value="alerts">
-            <AlertCircle className="h-4 w-4 mr-2" />
-            Alerts ({alerts.length})
-          </TabsTrigger>
-          <TabsTrigger value="readings">
-            <Thermometer className="h-4 w-4 mr-2" />
-            Sensor Readings ({sensorReadings.length})
-          </TabsTrigger>
-          <TabsTrigger value="presets">
-            <Settings2 className="h-4 w-4 mr-2" />
-            Presets ({presets.length})
-          </TabsTrigger>
-          <TabsTrigger value="farmers">
-            <Users className="h-4 w-4 mr-2" />
-            Farmers ({farmers.length})
-          </TabsTrigger>
+        <TabsList className="grid grid-cols-4 lg:grid-cols-8">
+          <TabsTrigger value="dryers">Dryers ({dryers.length})</TabsTrigger>
+          <TabsTrigger value="alerts">Alerts ({alerts.length})</TabsTrigger>
+          <TabsTrigger value="readings">Readings ({sensorReadings.length})</TabsTrigger>
+          <TabsTrigger value="presets">Presets ({presets.length})</TabsTrigger>
+          <TabsTrigger value="owners">Owners ({owners.length})</TabsTrigger>
+          <TabsTrigger value="regions">Regions ({regions.length})</TabsTrigger>
+          <TabsTrigger value="profiles">Profiles ({profiles.length})</TabsTrigger>
+          <TabsTrigger value="roles">Roles ({staffRoles.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dryers" className="space-y-4">
@@ -379,11 +416,11 @@ export default function DataViewer() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="farmers" className="space-y-4">
+        <TabsContent value="owners" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Farmers/Owners Table</CardTitle>
-              <CardDescription>Dryer owners from Supabase</CardDescription>
+              <CardTitle>Dryer Owners Table</CardTitle>
+              <CardDescription>Dryer owners from Supabase ({owners.length} records)</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -399,21 +436,142 @@ export default function DataViewer() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {farmers.length === 0 ? (
+                    {owners.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center text-muted-foreground">
-                          No farmers/owners found
+                          No owners found
                         </TableCell>
                       </TableRow>
                     ) : (
-                      farmers.map((farmer) => (
-                        <TableRow key={farmer.id}>
-                          <TableCell className="font-medium">{farmer.name}</TableCell>
-                          <TableCell>{farmer.phone || 'N/A'}</TableCell>
-                          <TableCell>{farmer.email || 'N/A'}</TableCell>
-                          <TableCell>{farmer.farm_business_name || 'N/A'}</TableCell>
-                          <TableCell>{farmer.id_number || 'N/A'}</TableCell>
-                          <TableCell className="max-w-xs truncate">{farmer.address || 'N/A'}</TableCell>
+                      owners.map((owner) => (
+                        <TableRow key={owner.id}>
+                          <TableCell className="font-medium">{owner.name}</TableCell>
+                          <TableCell>{owner.phone || 'N/A'}</TableCell>
+                          <TableCell>{owner.email || 'N/A'}</TableCell>
+                          <TableCell>{owner.farm_business_name || 'N/A'}</TableCell>
+                          <TableCell>{owner.id_number || 'N/A'}</TableCell>
+                          <TableCell className="max-w-xs truncate">{owner.address || 'N/A'}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="regions" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Regions Table</CardTitle>
+              <CardDescription>Geographic regions ({regions.length} records)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Created At</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {regions.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground">
+                          No regions found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      regions.map((region) => (
+                        <TableRow key={region.id}>
+                          <TableCell className="font-medium">{region.name}</TableCell>
+                          <TableCell>{region.code}</TableCell>
+                          <TableCell>{new Date(region.created_at).toLocaleDateString()}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="profiles" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>User Profiles Table</CardTitle>
+              <CardDescription>User profiles ({profiles.length} records)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Full Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Created At</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {profiles.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          No profiles found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      profiles.map((profile) => (
+                        <TableRow key={profile.id}>
+                          <TableCell className="font-medium">{profile.full_name || 'N/A'}</TableCell>
+                          <TableCell>{profile.email}</TableCell>
+                          <TableCell>{profile.phone || 'N/A'}</TableCell>
+                          <TableCell>{new Date(profile.created_at).toLocaleDateString()}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="roles" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Staff Roles Table</CardTitle>
+              <CardDescription>User role assignments ({staffRoles.length} records)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Region</TableHead>
+                      <TableHead>Created At</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {staffRoles.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground">
+                          No staff roles found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      staffRoles.map((role) => (
+                        <TableRow key={role.id}>
+                          <TableCell className="font-medium">
+                            <Badge>{role.role}</Badge>
+                          </TableCell>
+                          <TableCell>{role.region || 'N/A'}</TableCell>
+                          <TableCell>{new Date(role.created_at).toLocaleDateString()}</TableCell>
                         </TableRow>
                       ))
                     )}

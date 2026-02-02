@@ -6,35 +6,30 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// GET - Fetch all dryers from Supabase
+// GET - Fetch all staff roles from Supabase
 export async function GET(request: NextRequest) {
   try {
-    const { data: dryers, error } = await supabase
-      .from('dryers')
-      .select(`
-        *,
-        owner:dryer_owners(name, phone, email),
-        region:regions(name, code),
-        current_preset:presets(preset_id, crop_type, region)
-      `)
+    const { data: roles, error } = await supabase
+      .from('staff_roles')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching dryers:', error);
+      console.error('Error fetching staff roles:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch dryers', details: error.message },
+        { error: 'Failed to fetch staff roles', details: error.message },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      count: dryers?.length || 0,
-      dryers: dryers || [],
+      count: roles?.length || 0,
+      roles: roles || [],
     });
 
   } catch (error: any) {
-    console.error('Dryers fetch error:', error);
+    console.error('Staff roles fetch error:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
