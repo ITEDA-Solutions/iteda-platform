@@ -78,7 +78,7 @@ export function MainDashboard() {
     // Fetch dryer counts
     const { data: dryers } = await supabase
       .from('dryers')
-      .select('status, last_communication');
+      .select('status, last_communication, battery_level');
 
     const total = dryers?.length || 0;
     const active = dryers?.filter(d => d.status === 'active').length || 0;
@@ -88,37 +88,33 @@ export function MainDashboard() {
       const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
       return lastComm < hourAgo;
     }).length || 0;
-
-    // Fetch maintenance needed
-    const { data: maintenance } = await supabase
-      .from('maintenance_schedules')
-      .select('id')
-      .eq('status', 'scheduled')
-      .lte('scheduled_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString());
+    const maintenance = dryers?.filter(d => d.status === 'maintenance').length || 0;
 
     // Fetch alerts
     const { data: alerts } = await supabase
       .from('alerts')
-      .select('priority')
-      .eq('status', 'active');
+      .select('severity, status');
 
-    const criticalAlerts = alerts?.filter(a => a.priority === 'critical').length || 0;
+    const activeAlerts = alerts?.filter(a => a.status === 'active') || [];
+    const criticalAlerts = activeAlerts.filter(a => a.severity === 'critical').length || 0;
 
-    // Fetch latest sensor readings for averages
-    const { data: latestReadings } = await supabase
-      .from('latest_sensor_readings')
-      .select('battery_level, chamber_temp');
+    // Fetch recent sensor readings for averages
+    const { data: sensorReadings } = await supabase
+      .from('sensor_readings')
+      .select('battery_level, chamber_temp')
+      .order('timestamp', { ascending: false })
+      .limit(100);
 
-    const avgBattery = latestReadings?.reduce((sum, r) => sum + (r.battery_level || 0), 0) / (latestReadings?.length || 1);
-    const avgTemp = latestReadings?.reduce((sum, r) => sum + (r.chamber_temp || 0), 0) / (latestReadings?.length || 1);
+    const avgBattery = sensorReadings?.reduce((sum, r) => sum + (r.battery_level || 0), 0) / (sensorReadings?.length || 1);
+    const avgTemp = sensorReadings?.reduce((sum, r) => sum + (r.chamber_temp || 0), 0) / (sensorReadings?.length || 1);
 
     setStats({
       total_dryers: total,
       active_dryers: active,
       offline_dryers: offline,
-      maintenance_needed: maintenance?.length || 0,
+      maintenance_needed: maintenance,
       critical_alerts: criticalAlerts,
-      total_alerts: alerts?.length || 0,
+      total_alerts: activeAlerts.length,
       avg_battery_level: Math.round(avgBattery),
       avg_chamber_temp: Math.round(avgTemp * 10) / 10
     });
@@ -127,25 +123,33 @@ export function MainDashboard() {
   const fetchRecentAlerts = async () => {
     const { data } = await supabase
       .from('alerts')
-      .select(`
-        id,
-        alert_type,
-        priority,
-        title,
-        message,
-        triggered_at,
-        status,
-        dryers!inner(dryer_id)
-      `)
+      .select('id, type, severity, message, created_at, status, dryer_id')
       .eq('status', 'active')
-      .order('triggered_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(5);
 
     if (data) {
-      setRecentAlerts(data.map(alert => ({
-        ...alert,
-        dryer_identifier: (alert.dryers as any).dryer_id
-      })));
+      // Fetch dryer info separately
+      const dryerIds = data.map(a => a.dryer_id);
+      const { data: dryersData } = await supabase
+        .from('dryers')
+        .select('id, dryer_id')
+        .in('id', dryerIds);
+
+      setRecentAlerts(data.map(alert => {
+        const dryer = dryersData?.find(d => d.id === alert.dryer_id);
+        return {
+          id: alert.id,
+          dryer_id: alert.dryer_id,
+          dryer_identifier: dryer?.dryer_id || 'Unknown',
+          alert_type: alert.type,
+          priority: alert.severity,
+          title: alert.type.replace(/_/g, ' ').toUpperCase(),
+          message: alert.message,
+          triggered_at: alert.created_at,
+          status: alert.status,
+        };
+      }));
     }
   };
 
