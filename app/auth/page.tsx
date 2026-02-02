@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -108,8 +109,15 @@ export default function AuthPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/50">
       <div className="w-full max-w-md p-4">
         <div className="mb-8 text-center">
-          <Link href="/" className="text-2xl font-bold">
-            ITEDA Solutions Platform
+          <Link href="/" className="inline-flex flex-col items-center gap-3">
+            <Image
+              src="/iteda-logo.png"
+              alt="ITEDA Logo"
+              width={120}
+              height={120}
+              className="object-contain"
+            />
+            <span className="text-2xl font-bold">ITEDA Solutions Platform</span>
           </Link>
           <p className="mt-2 text-muted-foreground">
             Solar Dryer Management System

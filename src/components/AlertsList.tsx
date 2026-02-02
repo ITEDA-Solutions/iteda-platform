@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { RefreshCw, AlertTriangle, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { AlertActions } from './AlertActions';
 import { useToast } from '@/hooks/use-toast';
 
 interface Alert {

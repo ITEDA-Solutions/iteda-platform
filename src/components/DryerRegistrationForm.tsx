@@ -79,13 +79,16 @@ export function DryerRegistrationForm() {
 
   const loadRegions = async () => {
     try {
-      const { data, error } = await supabase
-        .from('regions')
-        .select('id, name, code')
-        .order('name');
+      const response = await fetch('/api/data/regions');
+      const result = await response.json();
 
-      if (error) throw error;
-      if (data) setRegions(data);
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      if (result.regions) {
+        setRegions(result.regions);
+      }
     } catch (error: any) {
       console.error('Error loading regions:', error);
       toast.error('Failed to load regions');

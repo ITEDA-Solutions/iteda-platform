@@ -147,10 +147,18 @@ export default function DryersList() {
             View and manage all dryers in the system
           </p>
         </div>
-        <Button onClick={fetchDryers} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Link href="/dashboard/dryers/register">
+            <Button className="bg-green-600 hover:bg-green-700">
+              <Plus className="h-4 w-4 mr-2" />
+              Register Dryer
+            </Button>
+          </Link>
+          <Button onClick={fetchDryers} disabled={loading} variant="outline">
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
