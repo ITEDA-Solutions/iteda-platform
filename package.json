@@ -19,7 +19,8 @@
     "test:rbac": "node scripts/test-rbac.js",
     "supabase:migrate": "node scripts/migrate-to-supabase.js",
     "supabase:test": "node scripts/test-db.js",
-    "supabase:check": "node scripts/check-supabase-schema.js"
+    "supabase:check": "node scripts/check-supabase-schema.js",
+    "supabase:confirm-users": "node scripts/confirm-all-users.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

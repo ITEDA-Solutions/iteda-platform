@@ -1,18 +1,10 @@
 'use client'
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -20,111 +12,108 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2, MapPin } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
+import { Loader2, MapPin, Cpu, Battery, User, MapPinned } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
-interface DryerRegistrationFormProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
-}
-
-interface OwnerData {
+interface Region {
+  id: string;
   name: string;
-  contact_phone: string;
-  contact_email: string;
-  address: string;
-  farm_business_name: string;
+  code: string;
 }
 
-interface DryerData {
-  dryer_id: string;
-  serial_number: string;
-  deployment_date: string;
-  location_latitude: string;
-  location_longitude: string;
-  location_address: string;
-  region_id: string;
-  status: string;
-}
-
-export function DryerRegistrationForm({ open, onOpenChange, onSuccess }: DryerRegistrationFormProps) {
-  const { toast } = useToast();
+export function DryerRegistrationForm() {
   const [isLoading, setIsLoading] = useState(false);
-  const [regions, setRegions] = useState<any[]>([]);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [currentTab, setCurrentTab] = useState("basic");
 
-  // Owner information
-  const [ownerData, setOwnerData] = useState<OwnerData>({
-    name: '',
-    contact_phone: '',
-    contact_email: '',
+  // Generate Dryer ID automatically
+  const generateDryerId = () => {
+    const year = new Date().getFullYear();
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `DRY-${year}-${random}`;
+  };
+
+  // Basic Information
+  const [basicData, setBasicData] = useState({
+    dryerId: generateDryerId(),
+    serialNumber: '',
+    deploymentDate: new Date().toISOString().split('T')[0],
+    status: 'idle' as 'active' | 'idle' | 'offline' | 'maintenance' | 'decommissioned',
+  });
+
+  // Installation Location
+  const [locationData, setLocationData] = useState({
+    latitude: '',
+    longitude: '',
     address: '',
-    farm_business_name: '',
+    regionId: '',
   });
 
-  // Dryer information
-  const [dryerData, setDryerData] = useState<DryerData>({
-    dryer_id: '',
-    serial_number: '',
-    deployment_date: new Date().toISOString().split('T')[0],
-    location_latitude: '',
-    location_longitude: '',
-    location_address: '',
-    region_id: '',
-    status: 'inactive',
+  // Hardware Configuration
+  const [hardwareData, setHardwareData] = useState({
+    numTempSensors: '3',
+    numHumiditySensors: '2',
+    numFans: '1',
+    numHeaters: '1',
+    solarCapacityW: '',
+    batteryCapacityAh: '',
   });
 
-  // Load regions when dialog opens
-  useState(() => {
-    if (open) {
-      loadRegions();
-    }
+  // Owner Information
+  const [ownerData, setOwnerData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    address: '',
+    farmBusinessName: '',
+    idNumber: '',
   });
+
+  // Load regions
+  useEffect(() => {
+    loadRegions();
+  }, []);
 
   const loadRegions = async () => {
-    const { data, error } = await supabase
-      .from('regions')
-      .select('*')
-      .order('name');
+    try {
+      const { data, error } = await supabase
+        .from('regions')
+        .select('id, name, code')
+        .order('name');
 
-    if (!error && data) {
-      setRegions(data);
+      if (error) throw error;
+      if (data) setRegions(data);
+    } catch (error: any) {
+      console.error('Error loading regions:', error);
+      toast.error('Failed to load regions');
     }
   };
 
   const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      setIsLoading(true);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setDryerData({
-            ...dryerData,
-            location_latitude: position.coords.latitude.toFixed(8),
-            location_longitude: position.coords.longitude.toFixed(8),
-          });
-          setIsLoading(false);
-          toast({
-            title: "Location captured",
-            description: "GPS coordinates have been set.",
-          });
-        },
-        (error) => {
-          setIsLoading(false);
-          toast({
-            title: "Location error",
-            description: "Could not get current location. Please enter manually.",
-            variant: "destructive",
-          });
-        }
-      );
-    } else {
-      toast({
-        title: "Not supported",
-        description: "Geolocation is not supported by your browser.",
-        variant: "destructive",
-      });
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
     }
+
+    setIsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationData({
+          ...locationData,
+          latitude: position.coords.latitude.toFixed(8),
+          longitude: position.coords.longitude.toFixed(8),
+        });
+        setIsLoading(false);
+        toast.success('GPS coordinates captured successfully');
+      },
+      (error) => {
+        setIsLoading(false);
+        toast.error('Could not get current location. Please enter manually.');
+      }
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -132,123 +121,255 @@ export function DryerRegistrationForm({ open, onOpenChange, onSuccess }: DryerRe
     setIsLoading(true);
 
     try {
-      // First, create the owner
+      // 1. Create owner first
       const { data: ownerResult, error: ownerError } = await supabase
-        .from('owners')
-        .insert([ownerData])
+        .from('dryer_owners')
+        .insert({
+          name: ownerData.name,
+          phone: ownerData.phone,
+          email: ownerData.email || null,
+          address: ownerData.address,
+          farm_business_name: ownerData.farmBusinessName,
+          id_number: ownerData.idNumber,
+        })
         .select()
         .single();
 
-      if (ownerError) throw ownerError;
+      if (ownerError) throw new Error(`Owner creation failed: ${ownerError.message}`);
 
-      // Then, create the dryer with owner reference
+      // 2. Create dryer with all information
       const { data: dryerResult, error: dryerError } = await supabase
         .from('dryers')
-        .insert([{
-          ...dryerData,
-          owner_id: ownerResult.id,
-          deployment_date: new Date(dryerData.deployment_date).toISOString(),
-          location_latitude: dryerData.location_latitude ? parseFloat(dryerData.location_latitude) : null,
-          location_longitude: dryerData.location_longitude ? parseFloat(dryerData.location_longitude) : null,
-        }])
+        .insert({
+          dryer_id: basicData.dryerId,
+          serial_number: basicData.serialNumber,
+          deployment_date: new Date(basicData.deploymentDate).toISOString(),
+          status: basicData.status,
+          
+          // Location
+          location_latitude: locationData.latitude ? parseFloat(locationData.latitude) : null,
+          location_longitude: locationData.longitude ? parseFloat(locationData.longitude) : null,
+          location_address: locationData.address,
+          region_id: locationData.regionId || null,
+          
+          // Hardware
+          num_temp_sensors: parseInt(hardwareData.numTempSensors),
+          num_humidity_sensors: parseInt(hardwareData.numHumiditySensors),
+          num_fans: parseInt(hardwareData.numFans),
+          num_heaters: parseInt(hardwareData.numHeaters),
+          solar_capacity_w: hardwareData.solarCapacityW ? parseInt(hardwareData.solarCapacityW) : null,
+          battery_capacity_ah: hardwareData.batteryCapacityAh ? parseInt(hardwareData.batteryCapacityAh) : null,
+          
+          // Owner reference
+          farmer_id: ownerResult.id,
+          
+          // Initial values
+          total_runtime_hours: 0,
+          active_alerts_count: 0,
+        })
         .select()
         .single();
 
-      if (dryerError) throw dryerError;
+      if (dryerError) throw new Error(`Dryer creation failed: ${dryerError.message}`);
 
-      toast({
-        title: "Dryer registered successfully",
-        description: `Dryer ${dryerData.dryer_id} has been registered.`,
-      });
-
+      toast.success(`Dryer ${basicData.dryerId} registered successfully!`);
+      
       // Reset form
+      setBasicData({
+        dryerId: generateDryerId(),
+        serialNumber: '',
+        deploymentDate: new Date().toISOString().split('T')[0],
+        status: 'idle',
+      });
+      setLocationData({ latitude: '', longitude: '', address: '', regionId: '' });
+      setHardwareData({
+        numTempSensors: '3',
+        numHumiditySensors: '2',
+        numFans: '1',
+        numHeaters: '1',
+        solarCapacityW: '',
+        batteryCapacityAh: '',
+      });
       setOwnerData({
         name: '',
-        contact_phone: '',
-        contact_email: '',
+        phone: '',
+        email: '',
         address: '',
-        farm_business_name: '',
+        farmBusinessName: '',
+        idNumber: '',
       });
-      setDryerData({
-        dryer_id: '',
-        serial_number: '',
-        deployment_date: new Date().toISOString().split('T')[0],
-        location_latitude: '',
-        location_longitude: '',
-        location_address: '',
-        region_id: '',
-        status: 'inactive',
-      });
+      setCurrentTab("basic");
 
-      onOpenChange(false);
-      if (onSuccess) onSuccess();
     } catch (error: any) {
-      toast({
-        title: "Registration failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      console.error('Registration error:', error);
+      toast.error(error.message || 'Failed to register dryer');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Register New Dryer</DialogTitle>
-          <DialogDescription>
-            Enter the dryer details and owner information to register a new dryer unit.
-          </DialogDescription>
-        </DialogHeader>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <Tabs value={currentTab} onValueChange={setCurrentTab}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="basic">Basic Info</TabsTrigger>
+          <TabsTrigger value="location">Location</TabsTrigger>
+          <TabsTrigger value="hardware">Hardware</TabsTrigger>
+          <TabsTrigger value="owner">Owner</TabsTrigger>
+        </TabsList>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Dryer Registration Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Dryer Information</h3>
-            
-            <div className="grid grid-cols-2 gap-4">
+        {/* Basic Information Tab */}
+        <TabsContent value="basic" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Cpu className="h-5 w-5" />
+                Basic Dryer Information
+              </CardTitle>
+              <CardDescription>
+                Enter the basic identification and deployment details
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="dryerId">
+                    Dryer ID <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="dryerId"
+                    value={basicData.dryerId}
+                    onChange={(e) => setBasicData({ ...basicData, dryerId: e.target.value })}
+                    placeholder="DRY-2024-001"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Auto-generated: DRY-YYYY-###
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="serialNumber">
+                    Serial Number <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="serialNumber"
+                    value={basicData.serialNumber}
+                    onChange={(e) => setBasicData({ ...basicData, serialNumber: e.target.value })}
+                    placeholder="SN123456789"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    From hardware unit
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="deploymentDate">
+                    Deployment Date <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="deploymentDate"
+                    type="date"
+                    value={basicData.deploymentDate}
+                    onChange={(e) => setBasicData({ ...basicData, deploymentDate: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status">Initial Status</Label>
+                  <Select
+                    value={basicData.status}
+                    onValueChange={(value: any) => setBasicData({ ...basicData, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="idle">Idle - Powered, not drying</SelectItem>
+                      <SelectItem value="active">Active - Currently drying</SelectItem>
+                      <SelectItem value="offline">Offline - No communication</SelectItem>
+                      <SelectItem value="maintenance">Maintenance - Under service</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Location Tab */}
+        <TabsContent value="location" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPinned className="h-5 w-5" />
+                    Installation Location
+                  </CardTitle>
+                  <CardDescription>
+                    GPS coordinates and physical address
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={getCurrentLocation}
+                  disabled={isLoading}
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Get GPS
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="latitude">Latitude</Label>
+                  <Input
+                    id="latitude"
+                    value={locationData.latitude}
+                    onChange={(e) => setLocationData({ ...locationData, latitude: e.target.value })}
+                    placeholder="-1.286389"
+                    type="number"
+                    step="0.00000001"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="longitude">Longitude</Label>
+                  <Input
+                    id="longitude"
+                    value={locationData.longitude}
+                    onChange={(e) => setLocationData({ ...locationData, longitude: e.target.value })}
+                    placeholder="36.817223"
+                    type="number"
+                    step="0.00000001"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="dryer_id">Dryer ID *</Label>
-                <Input
-                  id="dryer_id"
-                  value={dryerData.dryer_id}
-                  onChange={(e) => setDryerData({ ...dryerData, dryer_id: e.target.value })}
-                  placeholder="DRY-001"
-                  required
+                <Label htmlFor="address">Physical Address</Label>
+                <Textarea
+                  id="address"
+                  value={locationData.address}
+                  onChange={(e) => setLocationData({ ...locationData, address: e.target.value })}
+                  placeholder="Plot 123, Kiambu Road, Nairobi"
+                  rows={3}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="serial_number">Serial Number *</Label>
-                <Input
-                  id="serial_number"
-                  value={dryerData.serial_number}
-                  onChange={(e) => setDryerData({ ...dryerData, serial_number: e.target.value })}
-                  placeholder="SN123456789"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="deployment_date">Deployment Date *</Label>
-                <Input
-                  id="deployment_date"
-                  type="date"
-                  value={dryerData.deployment_date}
-                  onChange={(e) => setDryerData({ ...dryerData, deployment_date: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="region">Region</Label>
+                <Label htmlFor="region">Region/County</Label>
                 <Select
-                  value={dryerData.region_id}
-                  onValueChange={(value) => setDryerData({ ...dryerData, region_id: value })}
+                  value={locationData.regionId}
+                  onValueChange={(value) => setLocationData({ ...locationData, regionId: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select region" />
@@ -262,140 +383,242 @@ export function DryerRegistrationForm({ open, onOpenChange, onSuccess }: DryerRe
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          {/* Installation Location Section */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Installation Location</h3>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={getCurrentLocation}
-                disabled={isLoading}
-              >
-                <MapPin className="h-4 w-4 mr-2" />
-                Get Current Location
-              </Button>
-            </div>
+        {/* Hardware Configuration Tab */}
+        <TabsContent value="hardware" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Battery className="h-5 w-5" />
+                Hardware Configuration
+              </CardTitle>
+              <CardDescription>
+                Sensor counts, solar capacity, and battery specifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="numTempSensors">
+                    Temperature Sensors <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="numTempSensors"
+                    type="number"
+                    min="1"
+                    value={hardwareData.numTempSensors}
+                    onChange={(e) => setHardwareData({ ...hardwareData, numTempSensors: e.target.value })}
+                    required
+                  />
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="numHumiditySensors">
+                    Humidity Sensors <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="numHumiditySensors"
+                    type="number"
+                    min="1"
+                    value={hardwareData.numHumiditySensors}
+                    onChange={(e) => setHardwareData({ ...hardwareData, numHumiditySensors: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="numFans">
+                    Number of Fans <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="numFans"
+                    type="number"
+                    min="1"
+                    value={hardwareData.numFans}
+                    onChange={(e) => setHardwareData({ ...hardwareData, numFans: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="numHeaters">
+                    Number of Heaters <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="numHeaters"
+                    type="number"
+                    min="0"
+                    value={hardwareData.numHeaters}
+                    onChange={(e) => setHardwareData({ ...hardwareData, numHeaters: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="solarCapacity">Solar Panel Capacity (W)</Label>
+                  <Input
+                    id="solarCapacity"
+                    type="number"
+                    min="0"
+                    value={hardwareData.solarCapacityW}
+                    onChange={(e) => setHardwareData({ ...hardwareData, solarCapacityW: e.target.value })}
+                    placeholder="100"
+                  />
+                  <p className="text-xs text-muted-foreground">Watts</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="batteryCapacity">Battery Capacity (Ah)</Label>
+                  <Input
+                    id="batteryCapacity"
+                    type="number"
+                    min="0"
+                    value={hardwareData.batteryCapacityAh}
+                    onChange={(e) => setHardwareData({ ...hardwareData, batteryCapacityAh: e.target.value })}
+                    placeholder="100"
+                  />
+                  <p className="text-xs text-muted-foreground">Amp-hours</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Owner Information Tab */}
+        <TabsContent value="owner" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Owner Information
+              </CardTitle>
+              <CardDescription>
+                Details about the dryer owner/operator
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="latitude">Latitude</Label>
+                <Label htmlFor="ownerName">
+                  Owner Name <span className="text-destructive">*</span>
+                </Label>
                 <Input
-                  id="latitude"
-                  value={dryerData.location_latitude}
-                  onChange={(e) => setDryerData({ ...dryerData, location_latitude: e.target.value })}
-                  placeholder="0.0000000"
-                  type="number"
-                  step="0.00000001"
+                  id="ownerName"
+                  value={ownerData.name}
+                  onChange={(e) => setOwnerData({ ...ownerData, name: e.target.value })}
+                  placeholder="John Kamau"
+                  required
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="longitude">Longitude</Label>
-                <Input
-                  id="longitude"
-                  value={dryerData.location_longitude}
-                  onChange={(e) => setDryerData({ ...dryerData, location_longitude: e.target.value })}
-                  placeholder="0.0000000"
-                  type="number"
-                  step="0.00000001"
-                />
-              </div>
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="ownerPhone">
+                    Phone Number <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="ownerPhone"
+                    type="tel"
+                    value={ownerData.phone}
+                    onChange={(e) => setOwnerData({ ...ownerData, phone: e.target.value })}
+                    placeholder="+254700000000"
+                    required
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="location_address">Address</Label>
-              <Textarea
-                id="location_address"
-                value={dryerData.location_address}
-                onChange={(e) => setDryerData({ ...dryerData, location_address: e.target.value })}
-                placeholder="Physical address or location description"
-                rows={2}
-              />
-            </div>
-          </div>
-
-          {/* Owner Information Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Owner Information</h3>
-
-            <div className="space-y-2">
-              <Label htmlFor="owner_name">Owner Name *</Label>
-              <Input
-                id="owner_name"
-                value={ownerData.name}
-                onChange={(e) => setOwnerData({ ...ownerData, name: e.target.value })}
-                placeholder="John Doe"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="contact_phone">Contact Phone</Label>
-                <Input
-                  id="contact_phone"
-                  value={ownerData.contact_phone}
-                  onChange={(e) => setOwnerData({ ...ownerData, contact_phone: e.target.value })}
-                  placeholder="+254700000000"
-                  type="tel"
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="ownerEmail">Email</Label>
+                  <Input
+                    id="ownerEmail"
+                    type="email"
+                    value={ownerData.email}
+                    onChange={(e) => setOwnerData({ ...ownerData, email: e.target.value })}
+                    placeholder="owner@example.com"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="contact_email">Contact Email</Label>
-                <Input
-                  id="contact_email"
-                  value={ownerData.contact_email}
-                  onChange={(e) => setOwnerData({ ...ownerData, contact_email: e.target.value })}
-                  placeholder="owner@example.com"
-                  type="email"
+                <Label htmlFor="ownerAddress">Physical Address</Label>
+                <Textarea
+                  id="ownerAddress"
+                  value={ownerData.address}
+                  onChange={(e) => setOwnerData({ ...ownerData, address: e.target.value })}
+                  placeholder="Owner's residential or business address"
+                  rows={2}
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="owner_address">Address</Label>
-              <Textarea
-                id="owner_address"
-                value={ownerData.address}
-                onChange={(e) => setOwnerData({ ...ownerData, address: e.target.value })}
-                placeholder="Owner's physical address"
-                rows={2}
-              />
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="farmBusinessName">Farm/Business Name</Label>
+                  <Input
+                    id="farmBusinessName"
+                    value={ownerData.farmBusinessName}
+                    onChange={(e) => setOwnerData({ ...ownerData, farmBusinessName: e.target.value })}
+                    placeholder="Green Valley Farm"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="farm_business_name">Farm/Business Name</Label>
-              <Input
-                id="farm_business_name"
-                value={ownerData.farm_business_name}
-                onChange={(e) => setOwnerData({ ...ownerData, farm_business_name: e.target.value })}
-                placeholder="Green Valley Farm"
-              />
-            </div>
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="idNumber">ID/Registration Number</Label>
+                  <Input
+                    id="idNumber"
+                    value={ownerData.idNumber}
+                    onChange={(e) => setOwnerData({ ...ownerData, idNumber: e.target.value })}
+                    placeholder="12345678"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-          <DialogFooter>
+      {/* Navigation Buttons */}
+      <div className="flex items-center justify-between">
+        <div className="space-x-2">
+          {currentTab !== "basic" && (
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isLoading}
+              onClick={() => {
+                const tabs = ["basic", "location", "hardware", "owner"];
+                const currentIndex = tabs.indexOf(currentTab);
+                if (currentIndex > 0) setCurrentTab(tabs[currentIndex - 1]);
+              }}
             >
-              Cancel
+              Previous
             </Button>
+          )}
+        </div>
+
+        <div className="space-x-2">
+          {currentTab !== "owner" ? (
+            <Button
+              type="button"
+              onClick={() => {
+                const tabs = ["basic", "location", "hardware", "owner"];
+                const currentIndex = tabs.indexOf(currentTab);
+                if (currentIndex < tabs.length - 1) setCurrentTab(tabs[currentIndex + 1]);
+              }}
+            >
+              Next
+            </Button>
+          ) : (
             <Button type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Register Dryer
             </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          )}
+        </div>
+      </div>
+    </form>
   );
 }
