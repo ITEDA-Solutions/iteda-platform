@@ -35,24 +35,39 @@ export const usePermissions = () => {
     },
   });
 
-  // Get user role from staff_roles table
+  // Get user role from API endpoint (bypasses RLS issues)
   const { data: userRole } = useQuery({
     queryKey: ["userRole", session?.user?.id],
     queryFn: async () => {
       if (!session?.user?.id) return null;
 
-      const { data, error } = await supabase
-        .from("staff_roles")
-        .select("role, region")
-        .eq("staff_id", session.user.id)
-        .maybeSingle();
+      try {
+        // Get the access token from the session
+        const { data } = await supabase.auth.getSession();
+        const accessToken = data.session?.access_token;
 
-      if (error) {
+        const response = await fetch('/api/auth/user-role', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+        const result = await response.json();
+
+        if (!response.ok) {
+          console.error("Error fetching user role:", result.error);
+          return null;
+        }
+
+        console.log("User role fetched successfully:", result);
+        
+        return {
+          role: result.role,
+          region: result.region
+        };
+      } catch (error) {
         console.error("Error fetching user role:", error);
         return null;
       }
-
-      return data;
     },
     enabled: !!session?.user?.id,
   });
