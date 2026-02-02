@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, Search, MapPin, Battery, Signal } from 'lucide-react';
+import { RefreshCw, Search, MapPin, Battery, Signal, AlertTriangle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
@@ -23,6 +23,9 @@ interface Dryer {
   owner: { name: string } | null;
   region: { name: string } | null;
   current_preset: { preset_id: string; crop_type: string } | null;
+  active_alerts_count: number;
+  deployment_date: string | null;
+  total_runtime_hours: number | null;
 }
 
 export default function DryersList() {
@@ -78,6 +81,43 @@ export default function DryersList() {
         {status}
       </Badge>
     );
+  };
+
+  const getBatteryIcon = (level: number | null) => {
+    if (level === null) return <Battery className="h-4 w-4 text-gray-400" />;
+    if (level > 70) return <Battery className="h-4 w-4 text-green-600" />;
+    if (level > 30) return <Battery className="h-4 w-4 text-yellow-600" />;
+    return <Battery className="h-4 w-4 text-red-600" />;
+  };
+
+  const getSignalIcon = (strength: number | null) => {
+    if (strength === null) return <Signal className="h-4 w-4 text-gray-400" />;
+    if (strength > 70) return <Signal className="h-4 w-4 text-green-600" />;
+    if (strength > 30) return <Signal className="h-4 w-4 text-yellow-600" />;
+    return <Signal className="h-4 w-4 text-red-600" />;
+  };
+
+  const formatLastCommunication = (timestamp: string | null) => {
+    if (!timestamp) return 'Never';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
+  };
+
+  const getDaysActive = (deploymentDate: string | null) => {
+    if (!deploymentDate) return 0;
+    const deployed = new Date(deploymentDate);
+    const now = new Date();
+    const diffMs = now.getTime() - deployed.getTime();
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   };
 
   const filteredDryers = dryers.filter(dryer =>
@@ -187,59 +227,100 @@ export default function DryersList() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Dryer ID</TableHead>
-                    <TableHead>Serial Number</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Owner</TableHead>
                     <TableHead>Region</TableHead>
-                    <TableHead>Location</TableHead>
                     <TableHead>Battery</TableHead>
                     <TableHead>Signal</TableHead>
+                    <TableHead>Alerts</TableHead>
                     <TableHead>Last Comm</TableHead>
+                    <TableHead>Days Active</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredDryers.map((dryer) => (
                     <TableRow key={dryer.id}>
-                      <TableCell className="font-medium">{dryer.dryer_id}</TableCell>
-                      <TableCell>{dryer.serial_number}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{dryer.dryer_id}</span>
+                          <span className="text-xs text-muted-foreground">{dryer.serial_number}</span>
+                        </div>
+                      </TableCell>
                       <TableCell>{getStatusBadge(dryer.status)}</TableCell>
-                      <TableCell>{dryer.owner?.name || 'N/A'}</TableCell>
-                      <TableCell>{dryer.region?.name || 'N/A'}</TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {dryer.location_address ? (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {dryer.location_address}
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="text-sm">{dryer.owner?.name || 'N/A'}</span>
+                          {dryer.location_address && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {dryer.location_address.substring(0, 30)}...
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{dryer.region?.name || 'N/A'}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {getBatteryIcon(dryer.battery_level)}
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">
+                              {dryer.battery_level !== null ? `${dryer.battery_level}%` : 'N/A'}
+                            </span>
+                            {dryer.battery_voltage && (
+                              <span className="text-xs text-muted-foreground">
+                                {dryer.battery_voltage}V
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {getSignalIcon(dryer.signal_strength)}
+                          <span className="text-sm">
+                            {dryer.signal_strength !== null ? `${dryer.signal_strength}%` : 'N/A'}
                           </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {dryer.active_alerts_count > 0 ? (
+                          <Badge variant="destructive" className="gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            {dryer.active_alerts_count}
+                          </Badge>
                         ) : (
-                          'N/A'
+                          <Badge variant="outline" className="text-green-600">
+                            <span className="text-xs">No alerts</span>
+                          </Badge>
                         )}
                       </TableCell>
                       <TableCell>
-                        {dryer.battery_level !== null ? (
-                          <span className="flex items-center gap-1">
-                            <Battery className="h-3 w-3" />
-                            {dryer.battery_level}%
+                        <div className="flex items-center gap-1 text-sm">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className={
+                            dryer.last_communication && 
+                            new Date().getTime() - new Date(dryer.last_communication).getTime() > 900000
+                              ? 'text-red-600 font-medium'
+                              : 'text-muted-foreground'
+                          }>
+                            {formatLastCommunication(dryer.last_communication)}
                           </span>
-                        ) : (
-                          'N/A'
-                        )}
+                        </div>
                       </TableCell>
                       <TableCell>
-                        {dryer.signal_strength !== null ? (
-                          <span className="flex items-center gap-1">
-                            <Signal className="h-3 w-3" />
-                            {dryer.signal_strength}%
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">
+                            {getDaysActive(dryer.deployment_date)} days
                           </span>
-                        ) : (
-                          'N/A'
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {dryer.last_communication
-                          ? new Date(dryer.last_communication).toLocaleString()
-                          : 'Never'}
+                          {dryer.total_runtime_hours !== null && (
+                            <span className="text-xs text-muted-foreground">
+                              {dryer.total_runtime_hours.toFixed(1)}h runtime
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Link href={`/dashboard/dryers/${dryer.id}`}>

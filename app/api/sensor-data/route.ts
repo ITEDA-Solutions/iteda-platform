@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import {
+  validateSensorReading,
+  detectAnomalies,
+  logValidationFailure,
+  calculateChargingStatus,
+} from './validation';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Create Supabase client with service role for bypassing RLS
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 interface SensorDataPayload {
   dryer_id: string;
@@ -72,6 +79,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'dryer_id is required' },
         { status: 400 }
+      );
+    }
+
+    // Validate sensor data using new validation middleware
+    const validationResult = validateSensorReading(payload);
+    
+    if (!validationResult.isValid) {
+      logValidationFailure(payload.dryer_id, payload, validationResult);
+      return NextResponse.json(
+        { 
+          error: 'Sensor data validation failed',
+          details: validationResult.errors,
+          warnings: validationResult.warnings
+        },
+        { status: 400 }
+      );
+    }
+
+    // Log warnings if any (but still accept the data)
+    if (validationResult.warnings.length > 0) {
+      console.warn('[SENSOR DATA WARNING]', {
+        dryer_id: payload.dryer_id,
+        warnings: validationResult.warnings,
+      });
+    }
+
+    // Calculate charging status if not provided
+    if (!payload.charging_status) {
+      payload.charging_status = calculateChargingStatus(
+        payload.solar_voltage || null,
+        payload.battery_voltage || null,
+        payload.battery_level || null
       );
     }
 

@@ -12,10 +12,21 @@ export async function GET(request: NextRequest) {
     const { data: dryers, error } = await supabase
       .from('dryers')
       .select(`
-        *,
-        owner:dryer_owners(name, phone, email),
-        region:regions(name, code),
-        current_preset:presets(preset_id, crop_type, region)
+        id,
+        dryer_id,
+        serial_number,
+        status,
+        battery_level,
+        battery_voltage,
+        signal_strength,
+        last_communication,
+        location_address,
+        active_alerts_count,
+        deployment_date,
+        total_runtime_hours,
+        owner:dryer_owners(name),
+        region:regions(name),
+        current_preset:presets(preset_id, crop_type)
       `)
       .order('created_at', { ascending: false });
 
