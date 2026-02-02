@@ -9,18 +9,22 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
+import { supabase } from '@/lib/supabase'
 
 export default function AuthPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
-  // Check if user is already logged in
+  // Check if user is already logged in with Supabase
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      console.log('User already logged in, redirecting to dashboard')
-      router.push('/dashboard')
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        console.log('User already logged in with Supabase, redirecting to dashboard')
+        router.push('/dashboard')
+      }
     }
+    checkSession()
   }, [router])
 
   async function handleSignIn(e: React.FormEvent<HTMLFormElement>) {
@@ -32,28 +36,29 @@ export default function AuthPage() {
     const password = formData.get('password') as string
 
     try {
-      console.log('Attempting sign in...', { email })
-      const res = await fetch('/api/auth/signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      console.log('Attempting Supabase sign in...', { email })
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       })
 
-      const data = await res.json()
-      console.log('Sign in response:', { ok: res.ok, status: res.status, data })
-
-      if (res.ok) {
-        toast.success('Signed in successfully!')
-        localStorage.setItem('token', data.token)
-        console.log('Redirecting to dashboard...')
-        window.location.href = '/dashboard' // Force redirect
-      } else {
-        toast.error(data.error || 'Sign in failed')
-        console.error('Sign in failed:', data)
+      if (error) {
+        throw error
       }
-    } catch (error) {
+
+      if (data.session) {
+        toast.success('Signed in successfully!')
+        console.log('Supabase session created, redirecting to dashboard...')
+        // Supabase handles session storage automatically
+        router.push('/dashboard')
+        router.refresh()
+      } else {
+        throw new Error('No session returned')
+      }
+    } catch (error: any) {
       console.error('Sign in error:', error)
-      toast.error('An error occurred. Please try again.')
+      toast.error(error.message || 'Sign in failed')
     } finally {
       setIsLoading(false)
     }
@@ -69,28 +74,35 @@ export default function AuthPage() {
     const fullName = formData.get('fullName') as string
 
     try {
-      console.log('Attempting sign up...', { email, fullName })
-      const res = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, fullName }),
+      console.log('Attempting Supabase sign up...', { email, fullName })
+      
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
+        },
       })
 
-      const data = await res.json()
-      console.log('Sign up response:', { ok: res.ok, status: res.status, data })
-
-      if (res.ok) {
-        toast.success('Account created successfully!')
-        localStorage.setItem('token', data.token)
-        console.log('Redirecting to dashboard...')
-        window.location.href = '/dashboard' // Force redirect
-      } else {
-        toast.error(data.error || 'Sign up failed')
-        console.error('Sign up failed:', data)
+      if (error) {
+        throw error
       }
-    } catch (error) {
+
+      if (data.session) {
+        toast.success('Account created successfully!')
+        console.log('Supabase account created, redirecting to dashboard...')
+        router.push('/dashboard')
+        router.refresh()
+      } else if (data.user && !data.session) {
+        toast.info('Please check your email to verify your account')
+      } else {
+        throw new Error('Sign up failed')
+      }
+    } catch (error: any) {
       console.error('Sign up error:', error)
-      toast.error('An error occurred. Please try again.')
+      toast.error(error.message || 'Sign up failed')
     } finally {
       setIsLoading(false)
     }

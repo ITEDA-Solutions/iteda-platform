@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -18,41 +19,30 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
     const checkAuth = async () => {
       try {
-        // Check for JWT token in localStorage
-        const token = localStorage.getItem('token');
+        // Check Supabase session
+        const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (!token) {
-          console.log('No token found, redirecting to auth');
+        if (error) {
+          console.error('Session error:', error);
+          throw error;
+        }
+
+        if (!session) {
+          console.log('No Supabase session found, redirecting to auth');
           if (mounted) {
             router.push("/auth");
           }
           return;
         }
 
-        // Verify token with API
-        const res = await fetch('/api/auth/session', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (res.ok) {
-          console.log('Token valid, user authenticated');
-          if (mounted) {
-            setIsAuthenticated(true);
-            setLoading(false);
-          }
-        } else {
-          console.log('Token invalid, redirecting to auth');
-          localStorage.removeItem('token');
-          if (mounted) {
-            router.push("/auth");
-          }
+        console.log('Supabase session valid, user authenticated');
+        if (mounted) {
+          setIsAuthenticated(true);
+          setLoading(false);
         }
       } catch (error) {
         console.error("Auth check error:", error);
         if (mounted) {
-          localStorage.removeItem('token');
           router.push("/auth");
         }
       }
@@ -60,8 +50,20 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
     checkAuth();
 
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        setIsAuthenticated(false);
+        router.push("/auth");
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        setIsAuthenticated(true);
+        setLoading(false);
+      }
+    });
+
     return () => {
       mounted = false;
+      subscription.unsubscribe();
     };
   }, [router]);
 

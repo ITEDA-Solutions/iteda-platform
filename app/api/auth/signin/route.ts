@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthService } from '@/lib/auth';
+import { getServiceClient } from '@/lib/supabase-server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,12 +12,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const session = await AuthService.signIn(email, password);
-    
+    const supabase = getServiceClient();
+
+    // Sign in with Supabase Auth
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data.session || !data.user) {
+      throw new Error('Sign in failed');
+    }
+
     return NextResponse.json({
-      session,
-      user: session.user,
-      token: session.token,
+      user: data.user,
+      session: data.session,
+      token: data.session.access_token,
     });
   } catch (error: any) {
     console.error('Signin error:', error);

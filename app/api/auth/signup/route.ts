@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthService } from '@/lib/auth';
+import { getServiceClient } from '@/lib/supabase-server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,12 +12,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const session = await AuthService.signUp(email, password, fullName);
-    
+    const supabase = getServiceClient();
+
+    // Create user with Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // Auto-confirm email for development
+      user_metadata: {
+        full_name: fullName || email,
+      },
+    });
+
+    if (authError) {
+      throw authError;
+    }
+
+    if (!authData.user) {
+      throw new Error('User creation failed');
+    }
+
+    // Create profile in public.profiles table
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        id: authData.user.id,
+        email: authData.user.email,
+        full_name: fullName || email,
+      });
+
+    if (profileError) {
+      console.error('Profile creation error:', profileError);
+      // Continue even if profile creation fails - it might be handled by trigger
+    }
+
+    // Sign in the user to get a session token
+    const { data: sessionData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      throw signInError;
+    }
+
     return NextResponse.json({
-      session,
-      user: session.user,
-      token: session.token,
+      user: sessionData.user,
+      session: sessionData.session,
+      token: sessionData.session?.access_token,
     });
   } catch (error: any) {
     console.error('Signup error:', error);
