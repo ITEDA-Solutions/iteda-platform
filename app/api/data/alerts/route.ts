@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 
 // GET - Fetch all alerts from Supabase
 export async function GET(request: NextRequest) {
@@ -13,6 +8,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status'); // active, acknowledged, resolved, dismissed
     const severity = searchParams.get('severity'); // critical, warning, info
 
+    const supabase = getSupabaseAdmin();
     let query = supabase
       .from('alerts')
       .select('*')

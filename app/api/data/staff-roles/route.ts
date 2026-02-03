@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 import { verifyAuth } from '@/lib/supabase-auth';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // GET - Fetch all staff roles from Supabase (admin only)
 export async function GET(request: NextRequest) {
@@ -25,6 +20,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const supabase = getSupabaseAdmin();
     const { data: roles, error } = await supabase
       .from('staff_roles')
       .select('*')

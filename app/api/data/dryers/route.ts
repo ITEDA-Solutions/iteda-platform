@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 import { verifyAuth, getAccessibleDryerIds } from '@/lib/supabase-auth';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // GET - Fetch all dryers from Supabase (with role-based filtering)
 export async function GET(request: NextRequest) {
@@ -20,6 +15,7 @@ export async function GET(request: NextRequest) {
     // Get accessible dryer IDs based on user role
     const accessibleDryerIds = await getAccessibleDryerIds(user);
 
+    const supabase = getSupabaseAdmin();
     let query = supabase
       .from('dryers')
       .select(`

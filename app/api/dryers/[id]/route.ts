@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 import { requireAuth, requirePermission, canAccessDryer } from '@/lib/rbac-middleware';
 import { canUpdateDryerStatus } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // GET - Get single dryer by ID
 export async function GET(
@@ -35,6 +30,7 @@ export async function GET(
     }
 
     // Get dryer details using Supabase
+    const supabase = getSupabaseAdmin();
     const { data: dryer, error: dbError } = await supabase
       .from('dryers')
       .select(`
@@ -121,6 +117,8 @@ export async function PUT(
       locationAddress,
       regionId,
     } = body;
+
+    const supabase = getSupabaseAdmin();
 
     // Check if dryer exists
     const { data: existingDryer, error: fetchError } = await supabase
@@ -216,6 +214,8 @@ export async function DELETE(
 
     // Await params in Next.js 16+
     const { id: dryerId } = await params;
+
+    const supabase = getSupabaseAdmin();
 
     // Check if dryer exists
     const { data: existingDryer, error: fetchError } = await supabase

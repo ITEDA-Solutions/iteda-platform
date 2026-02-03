@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 
 // GET - List all presets
 export async function GET(request: NextRequest) {
@@ -12,6 +7,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const isActive = searchParams.get('is_active');
 
+    const supabase = getSupabaseAdmin();
     let query = supabase
       .from('presets')
       .select('*')
@@ -65,6 +61,7 @@ export async function POST(request: NextRequest) {
     // Generate preset_id if not provided
     const generatedPresetId = preset_id || `PRESET-${Date.now()}`;
 
+    const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from('presets')
       .insert([

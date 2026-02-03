@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 
 // GET - Fetch all dryer assignments from Supabase
 export async function GET(request: NextRequest) {
   try {
+    const supabase = getSupabaseAdmin();
     const { data: assignments, error } = await supabase
       .from('dryer_assignments')
       .select('*')

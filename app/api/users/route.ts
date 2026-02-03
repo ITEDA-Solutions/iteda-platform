@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-export const dynamic = 'force-dynamic';
-import { staff as users, profiles, staffRoles as userRoles } from '@/lib/schema';
-import { AuthService } from '@/lib/auth';
-import { eq, sql } from 'drizzle-orm';
-import bcrypt from 'bcryptjs';
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 import { validateUserManagementAccess } from '@/lib/rbac-middleware';
+
+export const dynamic = 'force-dynamic';
 
 // Get all users with their profiles and roles
 export async function GET(request: NextRequest) {
@@ -14,22 +11,40 @@ export async function GET(request: NextRequest) {
     const { user: currentUser, error } = await validateUserManagementAccess(request);
     if (error) return error;
 
-    // Get all users with their profiles and roles
-    const allUsers = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        createdAt: users.createdAt,
-        fullName: profiles.fullName,
-        phone: profiles.phone,
-        role: userRoles.role,
-        region: userRoles.region,
-        roleCreatedAt: userRoles.createdAt,
-      })
-      .from(users)
-      .leftJoin(profiles, eq(users.id, profiles.id))
-      .leftJoin(userRoles, eq(profiles.id, userRoles.staffId))
-      .orderBy(users.createdAt);
+    const supabase = getSupabaseAdmin();
+
+    // Get all profiles with their roles
+    const { data: profiles, error: dbError } = await supabase
+      .from('profiles')
+      .select(`
+        id,
+        email,
+        full_name,
+        phone,
+        created_at,
+        staff_roles(role, region, created_at)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (dbError) {
+      console.error('Error fetching users:', dbError);
+      return NextResponse.json(
+        { error: 'Failed to fetch users', details: dbError.message },
+        { status: 500 }
+      );
+    }
+
+    // Transform to expected format
+    const allUsers = profiles?.map(p => ({
+      id: p.id,
+      email: p.email,
+      createdAt: p.created_at,
+      fullName: p.full_name,
+      phone: p.phone,
+      role: p.staff_roles?.[0]?.role || null,
+      region: p.staff_roles?.[0]?.region || null,
+      roleCreatedAt: p.staff_roles?.[0]?.created_at || null,
+    })) || [];
 
     return NextResponse.json(allUsers);
   } catch (error: any) {
@@ -57,45 +72,71 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already exists
-    const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    if (existingUser.length > 0) {
-      return NextResponse.json({ error: 'User already exists' }, { status: 400 });
+    const supabase = getSupabaseAdmin();
+
+    // Create user in Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName || email,
+      },
+    });
+
+    if (authError) {
+      throw new Error(`Failed to create user: ${authError.message}`);
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    // Create user
-    const [newUser] = await db.insert(users).values({
-      email,
-      password: hashedPassword,
-    }).returning();
+    if (!authData.user) {
+      throw new Error('User creation failed - no user returned');
+    }
 
     // Create profile
-    const [profile] = await db.insert(profiles).values({
-      id: newUser.id,
-      email,
-      fullName: fullName || email,
-      phone,
-    }).returning();
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .upsert({
+        id: authData.user.id,
+        email,
+        full_name: fullName || email,
+        phone,
+      })
+      .select()
+      .single();
+
+    if (profileError) {
+      console.error('Profile creation error:', profileError);
+      // Rollback: delete the auth user
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      throw new Error(`Failed to create profile: ${profileError.message}`);
+    }
 
     // Create user role
-    const [userRole] = await db.insert(userRoles).values({
-      staffId: newUser.id,
-      role,
-      region,
-    }).returning();
+    const { data: userRole, error: roleError } = await supabase
+      .from('staff_roles')
+      .insert({
+        staff_id: authData.user.id,
+        role,
+        region,
+      })
+      .select()
+      .single();
+
+    if (roleError) {
+      // Rollback: delete the auth user
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      throw new Error(`Failed to assign role: ${roleError.message}`);
+    }
 
     return NextResponse.json({
-      id: newUser.id,
-      email: newUser.email,
-      fullName: profile.fullName,
+      id: authData.user.id,
+      email: authData.user.email,
+      fullName: profile.full_name,
       phone: profile.phone,
       role: userRole.role,
       region: userRole.region,
-      createdAt: newUser.createdAt,
-    });
+      createdAt: profile.created_at,
+    }, { status: 201 });
   } catch (error: any) {
     console.error('Error creating user:', error);
     return NextResponse.json(

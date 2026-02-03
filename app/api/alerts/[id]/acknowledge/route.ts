@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { alerts, dryers } from '@/lib/schema';
-import { eq, sql } from 'drizzle-orm';
-
-interface RouteContext {
-  params: {
-    id: string;
-  };
-}
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 
 // PUT - Acknowledge an alert
 export async function PUT(
   request: NextRequest,
-  { params }: RouteContext
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { userId, notes } = body;
 
@@ -26,49 +18,50 @@ export async function PUT(
       );
     }
 
-    // Get the alert
-    const existingAlert = await db
-      .select()
-      .from(alerts)
-      .where(eq(alerts.id, id))
-      .limit(1);
+    const supabase = getSupabaseAdmin();
 
-    if (existingAlert.length === 0) {
+    // Get the alert
+    const { data: alert, error: alertError } = await supabase
+      .from('alerts')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (alertError || !alert) {
       return NextResponse.json(
         { error: 'Alert not found' },
         { status: 404 }
       );
     }
 
-    const alert = existingAlert[0];
-
     // Update alert status
-    const updatedAlert = await db
-      .update(alerts)
-      .set({
+    const { data: updatedAlert, error: updateError } = await supabase
+      .from('alerts')
+      .update({
         status: 'acknowledged',
-        acknowledgedBy: userId,
-        acknowledgedAt: new Date(),
+        acknowledged_by: userId,
+        acknowledged_at: new Date().toISOString(),
         notes: notes || null,
-        updatedAt: new Date(),
+        updated_at: new Date().toISOString(),
       })
-      .where(eq(alerts.id, id))
-      .returning();
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
 
     // Decrement dryer alert count if alert was active
-    if (alert.status === 'active') {
-      await db
-        .update(dryers)
-        .set({
-          activeAlertsCount: sql`GREATEST(0, ${dryers.activeAlertsCount} - 1)`,
-          updatedAt: new Date(),
-        })
-        .where(eq(dryers.id, alert.dryerId));
+    if (alert.status === 'active' && alert.dryer_id) {
+      await supabase.rpc('decrement_dryer_alert_count', {
+        dryer_uuid: alert.dryer_id,
+      });
     }
 
     return NextResponse.json({
       success: true,
-      alert: updatedAlert[0],
+      alert: updatedAlert,
     });
 
   } catch (error: any) {
@@ -83,45 +76,44 @@ export async function PUT(
 // DELETE - Dismiss an alert
 export async function DELETE(
   request: NextRequest,
-  { params }: RouteContext
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
+    const supabase = getSupabaseAdmin();
 
     // Get the alert
-    const existingAlert = await db
-      .select()
-      .from(alerts)
-      .where(eq(alerts.id, id))
-      .limit(1);
+    const { data: alert, error: alertError } = await supabase
+      .from('alerts')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
 
-    if (existingAlert.length === 0) {
+    if (alertError || !alert) {
       return NextResponse.json(
         { error: 'Alert not found' },
         { status: 404 }
       );
     }
 
-    const alert = existingAlert[0];
-
     // Update alert status to dismissed
-    await db
-      .update(alerts)
-      .set({
+    const { error: updateError } = await supabase
+      .from('alerts')
+      .update({
         status: 'dismissed',
-        updatedAt: new Date(),
+        updated_at: new Date().toISOString(),
       })
-      .where(eq(alerts.id, id));
+      .eq('id', id);
+
+    if (updateError) {
+      throw updateError;
+    }
 
     // Decrement dryer alert count if alert was active
-    if (alert.status === 'active') {
-      await db
-        .update(dryers)
-        .set({
-          activeAlertsCount: sql`GREATEST(0, ${dryers.activeAlertsCount} - 1)`,
-          updatedAt: new Date(),
-        })
-        .where(eq(dryers.id, alert.dryerId));
+    if (alert.status === 'active' && alert.dryer_id) {
+      await supabase.rpc('decrement_dryer_alert_count', {
+        dryer_uuid: alert.dryer_id,
+      });
     }
 
     return NextResponse.json({

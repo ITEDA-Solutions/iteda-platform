@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { dryers, sensorReadings, alerts } from '@/lib/schema';
-import { eq, and, desc, gte, sql } from 'drizzle-orm';
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 
 // Alert thresholds
 const THRESHOLDS = {
@@ -26,26 +24,31 @@ interface AlertToCreate {
 export async function POST(request: NextRequest) {
   try {
     const alertsToCreate: AlertToCreate[] = [];
-    
+    const supabase = getSupabaseAdmin();
+
     // Get all active dryers
-    const activeDryers = await db
-      .select()
-      .from(dryers)
-      .where(sql`${dryers.status} != 'decommissioned'`);
+    const { data: activeDryers, error: dryersError } = await supabase
+      .from('dryers')
+      .select('*')
+      .neq('status', 'decommissioned');
+
+    if (dryersError) {
+      throw new Error(`Failed to fetch dryers: ${dryersError.message}`);
+    }
 
     const now = new Date();
 
-    for (const dryer of activeDryers) {
+    for (const dryer of activeDryers || []) {
       // Check offline status
-      if (dryer.lastCommunication) {
-        const minutesOffline = (now.getTime() - new Date(dryer.lastCommunication).getTime()) / (1000 * 60);
-        
+      if (dryer.last_communication) {
+        const minutesOffline = (now.getTime() - new Date(dryer.last_communication).getTime()) / (1000 * 60);
+
         if (minutesOffline > THRESHOLDS.OFFLINE_CRITICAL_HOURS * 60) {
           alertsToCreate.push({
             dryerId: dryer.id,
             severity: 'critical',
             type: 'dryer_offline',
-            message: `Dryer ${dryer.dryerId} has been offline for over ${THRESHOLDS.OFFLINE_CRITICAL_HOURS} hour(s)`,
+            message: `Dryer ${dryer.dryer_id} has been offline for over ${THRESHOLDS.OFFLINE_CRITICAL_HOURS} hour(s)`,
             thresholdValue: THRESHOLDS.OFFLINE_CRITICAL_HOURS * 60,
             currentValue: minutesOffline,
           });
@@ -54,7 +57,7 @@ export async function POST(request: NextRequest) {
             dryerId: dryer.id,
             severity: 'warning',
             type: 'dryer_offline',
-            message: `Dryer ${dryer.dryerId} has been offline for ${Math.round(minutesOffline)} minutes`,
+            message: `Dryer ${dryer.dryer_id} has been offline for ${Math.round(minutesOffline)} minutes`,
             thresholdValue: THRESHOLDS.OFFLINE_MINUTES,
             currentValue: minutesOffline,
           });
@@ -62,49 +65,48 @@ export async function POST(request: NextRequest) {
       }
 
       // Check battery level
-      if (dryer.batteryLevel !== null) {
-        if (dryer.batteryLevel < THRESHOLDS.CRITICAL_BATTERY) {
+      if (dryer.battery_level !== null) {
+        if (dryer.battery_level < THRESHOLDS.CRITICAL_BATTERY) {
           alertsToCreate.push({
             dryerId: dryer.id,
             severity: 'critical',
             type: 'battery_critical',
-            message: `Dryer ${dryer.dryerId} battery critically low at ${dryer.batteryLevel}%`,
+            message: `Dryer ${dryer.dryer_id} battery critically low at ${dryer.battery_level}%`,
             thresholdValue: THRESHOLDS.CRITICAL_BATTERY,
-            currentValue: dryer.batteryLevel,
+            currentValue: dryer.battery_level,
           });
-        } else if (dryer.batteryLevel < THRESHOLDS.LOW_BATTERY) {
+        } else if (dryer.battery_level < THRESHOLDS.LOW_BATTERY) {
           alertsToCreate.push({
             dryerId: dryer.id,
             severity: 'warning',
             type: 'battery_low',
-            message: `Dryer ${dryer.dryerId} battery low at ${dryer.batteryLevel}%`,
+            message: `Dryer ${dryer.dryer_id} battery low at ${dryer.battery_level}%`,
             thresholdValue: THRESHOLDS.LOW_BATTERY,
-            currentValue: dryer.batteryLevel,
+            currentValue: dryer.battery_level,
           });
         }
       }
 
       // Get latest sensor reading
-      const latestReading = await db
-        .select()
-        .from(sensorReadings)
-        .where(eq(sensorReadings.dryerId, dryer.id))
-        .orderBy(desc(sensorReadings.timestamp))
-        .limit(1);
+      const { data: latestReading } = await supabase
+        .from('sensor_readings')
+        .select('*')
+        .eq('dryer_id', dryer.id)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (latestReading.length > 0) {
-        const reading = latestReading[0];
-
+      if (latestReading) {
         // Check chamber temperature
-        if (reading.chamberTemp !== null) {
-          const temp = parseFloat(reading.chamberTemp.toString());
-          
+        if (latestReading.chamber_temp !== null) {
+          const temp = parseFloat(latestReading.chamber_temp.toString());
+
           if (temp > THRESHOLDS.CRITICAL_TEMP) {
             alertsToCreate.push({
               dryerId: dryer.id,
               severity: 'critical',
               type: 'temperature_critical',
-              message: `Dryer ${dryer.dryerId} chamber temperature critically high at ${temp}°C - Fire risk!`,
+              message: `Dryer ${dryer.dryer_id} chamber temperature critically high at ${temp}°C - Fire risk!`,
               thresholdValue: THRESHOLDS.CRITICAL_TEMP,
               currentValue: temp,
             });
@@ -113,7 +115,7 @@ export async function POST(request: NextRequest) {
               dryerId: dryer.id,
               severity: 'warning',
               type: 'temperature_high',
-              message: `Dryer ${dryer.dryerId} chamber temperature high at ${temp}°C`,
+              message: `Dryer ${dryer.dryer_id} chamber temperature high at ${temp}°C`,
               thresholdValue: THRESHOLDS.HIGH_TEMP,
               currentValue: temp,
             });
@@ -122,25 +124,25 @@ export async function POST(request: NextRequest) {
 
         // Check for sensor failures (null values when dryer is active)
         if (dryer.status === 'active') {
-          if (reading.chamberTemp === null || reading.internalHumidity === null) {
+          if (latestReading.chamber_temp === null || latestReading.internal_humidity === null) {
             alertsToCreate.push({
               dryerId: dryer.id,
               severity: 'warning',
               type: 'sensor_failure',
-              message: `Dryer ${dryer.dryerId} has sensor reading failures`,
+              message: `Dryer ${dryer.dryer_id} has sensor reading failures`,
             });
           }
         }
 
         // Check heater malfunction (heater on but no temp increase)
-        if (reading.heaterStatus && reading.chamberTemp !== null && reading.ambientTemp !== null) {
-          const tempDiff = parseFloat(reading.chamberTemp.toString()) - parseFloat(reading.ambientTemp.toString());
+        if (latestReading.heater_status && latestReading.chamber_temp !== null && latestReading.ambient_temp !== null) {
+          const tempDiff = parseFloat(latestReading.chamber_temp.toString()) - parseFloat(latestReading.ambient_temp.toString());
           if (tempDiff < 2) {
             alertsToCreate.push({
               dryerId: dryer.id,
               severity: 'warning',
               type: 'heater_malfunction',
-              message: `Dryer ${dryer.dryerId} heater may be malfunctioning - no temperature increase`,
+              message: `Dryer ${dryer.dryer_id} heater may be malfunctioning - no temperature increase`,
             });
           }
         }
@@ -148,13 +150,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for existing active alerts to avoid duplicates
-    const existingAlerts = await db
-      .select()
-      .from(alerts)
-      .where(eq(alerts.status, 'active'));
+    const { data: existingAlerts } = await supabase
+      .from('alerts')
+      .select('dryer_id, type')
+      .eq('status', 'active');
 
     const existingAlertKeys = new Set(
-      existingAlerts.map(a => `${a.dryerId}-${a.type}`)
+      (existingAlerts || []).map(a => `${a.dryer_id}-${a.type}`)
     );
 
     // Filter out alerts that already exist
@@ -164,34 +166,36 @@ export async function POST(request: NextRequest) {
 
     // Create new alerts
     if (newAlerts.length > 0) {
-      await db.insert(alerts).values(
-        newAlerts.map(alert => ({
-          dryerId: alert.dryerId,
-          severity: alert.severity,
-          type: alert.type,
-          message: alert.message,
-          thresholdValue: alert.thresholdValue?.toString(),
-          currentValue: alert.currentValue?.toString(),
-          status: 'active' as const,
-        }))
-      );
+      const { error: insertError } = await supabase
+        .from('alerts')
+        .insert(
+          newAlerts.map(alert => ({
+            dryer_id: alert.dryerId,
+            severity: alert.severity,
+            type: alert.type,
+            message: alert.message,
+            threshold_value: alert.thresholdValue?.toString(),
+            current_value: alert.currentValue?.toString(),
+            status: 'active',
+          }))
+        );
+
+      if (insertError) {
+        throw new Error(`Failed to create alerts: ${insertError.message}`);
+      }
 
       // Update dryer alert counts
       for (const alert of newAlerts) {
-        await db
-          .update(dryers)
-          .set({ 
-            activeAlertsCount: sql`${dryers.activeAlertsCount} + 1`,
-            updatedAt: new Date(),
-          })
-          .where(eq(dryers.id, alert.dryerId));
+        await supabase.rpc('increment_dryer_alert_count', {
+          dryer_uuid: alert.dryerId,
+        });
       }
     }
 
     return NextResponse.json({
       success: true,
       alertsGenerated: newAlerts.length,
-      totalDryersChecked: activeDryers.length,
+      totalDryersChecked: activeDryers?.length || 0,
       alerts: newAlerts,
     });
 
@@ -207,22 +211,22 @@ export async function POST(request: NextRequest) {
 // GET - Get alert generation status and statistics
 export async function GET(request: NextRequest) {
   try {
-    const activeAlertsCount = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(alerts)
-      .where(eq(alerts.status, 'active'));
+    const supabase = getSupabaseAdmin();
 
-    const criticalAlertsCount = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(alerts)
-      .where(and(
-        eq(alerts.status, 'active'),
-        eq(alerts.severity, 'critical')
-      ));
+    const { count: activeCount } = await supabase
+      .from('alerts')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'active');
+
+    const { count: criticalCount } = await supabase
+      .from('alerts')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'active')
+      .eq('severity', 'critical');
 
     return NextResponse.json({
-      activeAlerts: activeAlertsCount[0]?.count || 0,
-      criticalAlerts: criticalAlertsCount[0]?.count || 0,
+      activeAlerts: activeCount || 0,
+      criticalAlerts: criticalCount || 0,
       thresholds: THRESHOLDS,
     });
 

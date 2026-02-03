@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 
 // GET - Fetch sensor readings from Supabase
 export async function GET(request: NextRequest) {
@@ -15,6 +10,7 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('start_date');
     const endDate = searchParams.get('end_date');
 
+    const supabase = getSupabaseAdmin();
     let query = supabase
       .from('sensor_readings')
       .select(`

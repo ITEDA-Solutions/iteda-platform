@@ -1,21 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 
 // GET - Get single preset
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    const supabase = getSupabaseAdmin();
+
     const { data, error } = await supabase
       .from('presets')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) throw error;
@@ -40,9 +38,10 @@ export async function GET(
 // PUT - Update preset
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     const {
@@ -72,10 +71,11 @@ export async function PUT(
 
     updateData.updated_at = new Date().toISOString();
 
+    const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from('presets')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -97,14 +97,17 @@ export async function PUT(
 // DELETE - Soft delete preset (mark as inactive)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    const supabase = getSupabaseAdmin();
+
     // Check if preset is currently in use
     const { data: dryersUsingPreset } = await supabase
       .from('dryers')
       .select('id')
-      .eq('current_preset_id', params.id)
+      .eq('current_preset_id', id)
       .limit(1);
 
     if (dryersUsingPreset && dryersUsingPreset.length > 0) {
@@ -118,7 +121,7 @@ export async function DELETE(
     const { data, error } = await supabase
       .from('presets')
       .update({ is_active: false, updated_at: new Date().toISOString() })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 

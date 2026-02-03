@@ -1,26 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 
 // PUT - Update staff member
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const { full_name, role, region_id } = body;
+
+    const supabase = getSupabaseAdmin();
 
     // Update profile
     if (full_name) {
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ full_name })
-        .eq('id', params.id);
+        .eq('id', id);
 
       if (profileError) {
         throw new Error(`Failed to update profile: ${profileError.message}`);
@@ -43,7 +41,7 @@ export async function PUT(
           role: role,
           region: region_id !== undefined ? region_id : undefined,
         })
-        .eq('staff_id', params.id);
+        .eq('staff_id', id);
 
       if (roleError) {
         throw new Error(`Failed to update role: ${roleError.message}`);
@@ -66,14 +64,17 @@ export async function PUT(
 // DELETE - Remove staff member
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    const supabase = getSupabaseAdmin();
+
     // Delete user role
     const { error: roleError } = await supabase
       .from('staff_roles')
       .delete()
-      .eq('staff_id', params.id);
+      .eq('staff_id', id);
 
     if (roleError) {
       console.error('Error deleting user role:', roleError);
@@ -83,14 +84,14 @@ export async function DELETE(
     const { error: profileError } = await supabase
       .from('profiles')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (profileError) {
       console.error('Error deleting profile:', profileError);
     }
 
     // Delete auth user
-    const { error: authError } = await supabase.auth.admin.deleteUser(params.id);
+    const { error: authError } = await supabase.auth.admin.deleteUser(id);
 
     if (authError) {
       throw new Error(`Failed to delete user: ${authError.message}`);

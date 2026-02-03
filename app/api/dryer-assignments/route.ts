@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-export const dynamic = 'force-dynamic';
-import { dryerAssignments, dryers, profiles } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 import { requireAdminLevel } from '@/lib/rbac-middleware';
+
+export const dynamic = 'force-dynamic';
 
 // Get all dryer assignments
 export async function GET(request: NextRequest) {
@@ -12,25 +11,45 @@ export async function GET(request: NextRequest) {
     const { user: currentUser, error } = await requireAdminLevel(request);
     if (error) return error;
 
-    const assignments = await db
-      .select({
-        id: dryerAssignments.id,
-        technicianId: dryerAssignments.technicianId,
-        dryerId: dryerAssignments.dryerId,
-        assignedAt: dryerAssignments.assignedAt,
-        assignedBy: dryerAssignments.assignedBy,
-        notes: dryerAssignments.notes,
-        technicianName: profiles.fullName,
-        technicianEmail: profiles.email,
-        dryerSerialNumber: dryers.serialNumber,
-        dryerStatus: dryers.status,
-      })
-      .from(dryerAssignments)
-      .leftJoin(profiles, eq(dryerAssignments.technicianId, profiles.id))
-      .leftJoin(dryers, eq(dryerAssignments.dryerId, dryers.id))
-      .orderBy(dryerAssignments.assignedAt);
+    const supabase = getSupabaseAdmin();
 
-    return NextResponse.json(assignments);
+    const { data: assignments, error: dbError } = await supabase
+      .from('dryer_assignments')
+      .select(`
+        id,
+        technician_id,
+        dryer_id,
+        assigned_at,
+        assigned_by,
+        notes,
+        technician:profiles!dryer_assignments_technician_id_fkey(full_name, email),
+        dryer:dryers(serial_number, status)
+      `)
+      .order('assigned_at', { ascending: false });
+
+    if (dbError) {
+      console.error('Error fetching dryer assignments:', dbError);
+      return NextResponse.json(
+        { error: 'Failed to fetch dryer assignments', details: dbError.message },
+        { status: 500 }
+      );
+    }
+
+    // Transform to camelCase for frontend consistency
+    const transformedAssignments = assignments?.map(a => ({
+      id: a.id,
+      technicianId: a.technician_id,
+      dryerId: a.dryer_id,
+      assignedAt: a.assigned_at,
+      assignedBy: a.assigned_by,
+      notes: a.notes,
+      technicianName: a.technician?.full_name || null,
+      technicianEmail: a.technician?.email || null,
+      dryerSerialNumber: a.dryer?.serial_number || null,
+      dryerStatus: a.dryer?.status || null,
+    })) || [];
+
+    return NextResponse.json(transformedAssignments);
   } catch (error: any) {
     console.error('Error fetching dryer assignments:', error);
     return NextResponse.json(
@@ -56,37 +75,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if technician exists and is a field technician
-    const [technician] = await db
-      .select()
-      .from(profiles)
-      .where(eq(profiles.id, technicianId))
-      .limit(1);
+    const supabase = getSupabaseAdmin();
 
-    if (!technician) {
+    // Check if technician exists
+    const { data: technician, error: techError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', technicianId)
+      .maybeSingle();
+
+    if (techError || !technician) {
       return NextResponse.json({ error: 'Technician not found' }, { status: 404 });
     }
 
     // Check if dryer exists
-    const [dryer] = await db
-      .select()
-      .from(dryers)
-      .where(eq(dryers.id, dryerId))
-      .limit(1);
+    const { data: dryer, error: dryerError } = await supabase
+      .from('dryers')
+      .select('id')
+      .eq('id', dryerId)
+      .maybeSingle();
 
-    if (!dryer) {
+    if (dryerError || !dryer) {
       return NextResponse.json({ error: 'Dryer not found' }, { status: 404 });
     }
 
     // Check if assignment already exists
-    const existingAssignment = await db
-      .select()
-      .from(dryerAssignments)
-      .where(eq(dryerAssignments.technicianId, technicianId))
-      .where(eq(dryerAssignments.dryerId, dryerId))
-      .limit(1);
+    const { data: existingAssignment } = await supabase
+      .from('dryer_assignments')
+      .select('id')
+      .eq('technician_id', technicianId)
+      .eq('dryer_id', dryerId)
+      .maybeSingle();
 
-    if (existingAssignment.length > 0) {
+    if (existingAssignment) {
       return NextResponse.json(
         { error: 'This dryer is already assigned to this technician' },
         { status: 400 }
@@ -94,17 +115,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Create assignment
-    const [assignment] = await db
-      .insert(dryerAssignments)
-      .values({
-        technicianId,
-        dryerId,
-        assignedBy: currentUser.id,
+    const { data: assignment, error: insertError } = await supabase
+      .from('dryer_assignments')
+      .insert({
+        technician_id: technicianId,
+        dryer_id: dryerId,
+        assigned_by: currentUser.id,
         notes,
       })
-      .returning();
+      .select()
+      .single();
 
-    return NextResponse.json(assignment, { status: 201 });
+    if (insertError) {
+      console.error('Error creating assignment:', insertError);
+      return NextResponse.json(
+        { error: 'Failed to create assignment', details: insertError.message },
+        { status: 500 }
+      );
+    }
+
+    // Transform to camelCase
+    const transformedAssignment = {
+      id: assignment.id,
+      technicianId: assignment.technician_id,
+      dryerId: assignment.dryer_id,
+      assignedAt: assignment.assigned_at,
+      assignedBy: assignment.assigned_by,
+      notes: assignment.notes,
+    };
+
+    return NextResponse.json(transformedAssignment, { status: 201 });
   } catch (error: any) {
     console.error('Error creating dryer assignment:', error);
     return NextResponse.json(

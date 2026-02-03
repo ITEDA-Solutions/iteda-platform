@@ -1,9 +1,9 @@
 // Centralized Supabase Authentication for Server-Side
 // This module provides unified authentication across all API routes
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { getSupabaseAdmin } from './supabase-db';
 import { UserRole } from './permissions';
 
 // Authenticated user with role information
@@ -17,23 +17,6 @@ export interface AuthenticatedUser {
 export interface AuthResult {
   user: AuthenticatedUser | null;
   error: NextResponse | null;
-}
-
-// Get the service client for admin operations
-function getServiceClient(): SupabaseClient {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error('Missing Supabase environment variables');
-  }
-
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
 }
 
 // Extract token from request (Authorization header or cookies)
@@ -80,10 +63,10 @@ async function extractToken(request: NextRequest): Promise<string | null> {
   return null;
 }
 
-// Get user role from database using Supabase client (more reliable than Drizzle for this)
+// Get user role from database using Supabase client
 async function getUserRole(userId: string): Promise<{ role: UserRole | null; region: string | null }> {
   try {
-    const supabase = getServiceClient();
+    const supabase = getSupabaseAdmin();
 
     const { data: roleData, error } = await supabase
       .from('staff_roles')
@@ -121,7 +104,7 @@ export async function verifyAuth(request: NextRequest): Promise<AuthResult> {
   }
 
   try {
-    const supabase = getServiceClient();
+    const supabase = getSupabaseAdmin();
 
     // Verify the token with Supabase
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -203,7 +186,7 @@ export async function canUserAccessDryer(
   if (user.role === 'regional_manager') {
     if (!user.region) return false;
 
-    const supabase = getServiceClient();
+    const supabase = getSupabaseAdmin();
     const { data: dryer } = await supabase
       .from('dryers')
       .select('region_id')
@@ -215,7 +198,7 @@ export async function canUserAccessDryer(
 
   // Field technician can only access assigned dryers
   if (user.role === 'field_technician') {
-    const supabase = getServiceClient();
+    const supabase = getSupabaseAdmin();
     const { data: assignment } = await supabase
       .from('dryer_assignments')
       .select('id')
@@ -236,7 +219,7 @@ export async function getAccessibleDryerIds(user: AuthenticatedUser): Promise<st
     return null;
   }
 
-  const supabase = getServiceClient();
+  const supabase = getSupabaseAdmin();
 
   // Regional manager gets dryers from their region
   if (user.role === 'regional_manager') {

@@ -1,18 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 import { cookies } from 'next/headers';
-
-// Use service role to bypass RLS
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,9 +11,9 @@ export async function GET(request: NextRequest) {
     if (!token) {
       // Try to get session from cookies
       const cookieStore = await cookies();
-      const accessToken = cookieStore.get('sb-access-token')?.value || 
+      const accessToken = cookieStore.get('sb-access-token')?.value ||
                          cookieStore.get('supabase-auth-token')?.value;
-      
+
       if (!accessToken) {
         return NextResponse.json(
           { error: 'Not authenticated - no token found', role: null },
@@ -34,8 +22,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const supabase = getSupabaseAdmin();
+
     // Use admin client to get user from token
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token || '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token || '');
 
     if (userError || !user) {
       return NextResponse.json(
@@ -47,7 +37,7 @@ export async function GET(request: NextRequest) {
     const userId = user.id;
 
     // Use admin client to bypass RLS and get user role
-    const { data: roleData, error: roleError } = await supabaseAdmin
+    const { data: roleData, error: roleError } = await supabase
       .from('staff_roles')
       .select('role, region')
       .eq('staff_id', userId)
@@ -69,10 +59,10 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { 
-        role: roleData.role, 
+      {
+        role: roleData.role,
         region: roleData.region,
-        userId: userId 
+        userId: userId
       },
       { status: 200 }
     );

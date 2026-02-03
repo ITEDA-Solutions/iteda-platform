@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 
 interface OperationalEventPayload {
   dryer_id: string;
@@ -28,6 +23,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const supabase = getSupabaseAdmin();
 
     // Verify dryer exists
     const { data: dryer, error: dryerError } = await supabase
@@ -100,6 +97,8 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const supabase = getSupabaseAdmin();
 
     // Get dryer UUID
     const { data: dryer, error: dryerError } = await supabase

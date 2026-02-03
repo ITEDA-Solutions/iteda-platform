@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { sql } from 'drizzle-orm';
 
 // System settings stored in a dedicated table
 // This is a simple key-value store with categories

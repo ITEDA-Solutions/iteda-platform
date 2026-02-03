@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 
 // POST - Assign alert to technician
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const { assigned_to, assigned_by, notes } = body;
 
@@ -22,11 +18,13 @@ export async function POST(
       );
     }
 
+    const supabase = getSupabaseAdmin();
+
     // Verify the alert exists
     const { data: alert, error: alertError } = await supabase
       .from('alerts')
       .select('id, status')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (alertError || !alert) {
@@ -46,7 +44,7 @@ export async function POST(
         status: alert.status === 'active' ? 'acknowledged' : alert.status,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -54,7 +52,7 @@ export async function POST(
 
     // Optionally create an assignment record in a separate table
     // This could be useful for tracking assignment history
-    
+
     return NextResponse.json(
       { success: true, alert: data },
       { status: 200 }

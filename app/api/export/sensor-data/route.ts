@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 import { validateExportAccess, canAccessDryer } from '@/lib/rbac-middleware';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // GET - Export sensor data as CSV
 export async function GET(request: NextRequest) {
@@ -27,6 +22,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const supabase = getSupabaseAdmin();
+
     // Get dryer UUID
     const { data: dryer, error: dryerError } = await supabase
       .from('dryers')
@@ -42,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user can access this dryer
-    const hasAccess = await canAccessDryer(user.id, dryer.id);
+    const hasAccess = await canAccessDryer(user, dryer.id);
     if (!hasAccess) {
       return NextResponse.json(
         { error: 'You do not have access to this dryer' },
@@ -76,7 +73,7 @@ export async function GET(request: NextRequest) {
     if (format === 'csv') {
       // Generate CSV
       const csv = generateCSV(readings || [], dryer.dryer_id);
-      
+
       return new NextResponse(csv, {
         status: 200,
         headers: {

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-export const dynamic = 'force-dynamic';
-import { regions } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 import { requireAuth, requireSuperAdmin } from '@/lib/rbac-middleware';
+
+export const dynamic = 'force-dynamic';
 
 // GET - List all regions (all authenticated users can view)
 export async function GET(request: NextRequest) {
@@ -11,17 +10,29 @@ export async function GET(request: NextRequest) {
     const { user, error } = await requireAuth(request);
     if (error) return error;
 
-    const allRegions = await db
-      .select({
-        id: regions.id,
-        name: regions.name,
-        code: regions.code,
-        createdAt: regions.createdAt,
-      })
-      .from(regions)
-      .orderBy(regions.name);
+    const supabase = getSupabaseAdmin();
+    const { data: allRegions, error: dbError } = await supabase
+      .from('regions')
+      .select('id, name, code, created_at')
+      .order('name', { ascending: true });
 
-    return NextResponse.json(allRegions);
+    if (dbError) {
+      console.error('Error fetching regions:', dbError);
+      return NextResponse.json(
+        { error: 'Failed to fetch regions', details: dbError.message },
+        { status: 500 }
+      );
+    }
+
+    // Transform to camelCase for frontend consistency
+    const transformedRegions = allRegions?.map(r => ({
+      id: r.id,
+      name: r.name,
+      code: r.code,
+      createdAt: r.created_at,
+    })) || [];
+
+    return NextResponse.json(transformedRegions);
   } catch (error: any) {
     console.error('Error fetching regions:', error);
     return NextResponse.json(
@@ -46,14 +57,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if region already exists
-    const existing = await db
-      .select()
-      .from(regions)
-      .where(eq(regions.code, code))
-      .limit(1);
+    const supabase = getSupabaseAdmin();
 
-    if (existing.length > 0) {
+    // Check if region already exists
+    const { data: existing } = await supabase
+      .from('regions')
+      .select('id')
+      .eq('code', code)
+      .maybeSingle();
+
+    if (existing) {
       return NextResponse.json(
         { error: 'Region with this code already exists' },
         { status: 400 }
@@ -61,12 +74,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Create region
-    const [newRegion] = await db
-      .insert(regions)
-      .values({ name, code })
-      .returning();
+    const { data: newRegion, error: insertError } = await supabase
+      .from('regions')
+      .insert({ name, code })
+      .select()
+      .single();
 
-    return NextResponse.json(newRegion, { status: 201 });
+    if (insertError) {
+      console.error('Error creating region:', insertError);
+      return NextResponse.json(
+        { error: 'Failed to create region', details: insertError.message },
+        { status: 500 }
+      );
+    }
+
+    // Transform to camelCase
+    const transformedRegion = {
+      id: newRegion.id,
+      name: newRegion.name,
+      code: newRegion.code,
+      createdAt: newRegion.created_at,
+    };
+
+    return NextResponse.json(transformedRegion, { status: 201 });
   } catch (error: any) {
     console.error('Error creating region:', error);
     return NextResponse.json(

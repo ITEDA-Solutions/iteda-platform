@@ -1,25 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 
 // PUT - Resolve alert
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const { resolved_by, resolution_notes } = body;
+
+    const supabase = getSupabaseAdmin();
 
     // Get the alert to find the dryer
     const { data: alert, error: alertError } = await supabase
       .from('alerts')
       .select('dryer_id, status')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (alertError || !alert) {
@@ -39,7 +37,7 @@ export async function PUT(
         resolution_notes,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 

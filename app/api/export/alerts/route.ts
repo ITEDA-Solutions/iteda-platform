@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 import { validateExportAccess, getAccessibleDryerIds } from '@/lib/rbac-middleware';
-import { db } from '@/lib/db';
-import { dryers, dryerAssignments } from '@/lib/schema';
-import { eq, inArray } from 'drizzle-orm';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // GET - Export alerts as CSV
 export async function GET(request: NextRequest) {
@@ -23,9 +15,11 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('end_date');
     const status = searchParams.get('status');
 
+    const supabase = getSupabaseAdmin();
+
     // Get accessible dryer IDs based on role
-    const accessibleDryerIds = await getAccessibleDryerIds(user.id, user.role, user.region);
-    
+    const accessibleDryerIds = await getAccessibleDryerIds(user);
+
     // If accessibleDryerIds is an empty array, user has no access
     if (Array.isArray(accessibleDryerIds) && accessibleDryerIds.length === 0) {
       const csv = generateAlertsCSV([]);
@@ -54,7 +48,7 @@ export async function GET(request: NextRequest) {
         .select('id')
         .eq('dryer_id', dryerId)
         .single();
-      
+
       if (dryer) {
         query = query.eq('dryer_id', dryer.id);
       }
@@ -64,12 +58,12 @@ export async function GET(request: NextRequest) {
       query = query.in('dryer_id', accessibleDryerIds);
     } else if (user.role === 'regional_manager' && user.region) {
       // For regional managers, filter by region
-      const regionDryers = await db
-        .select({ id: dryers.id })
-        .from(dryers)
-        .where(eq(dryers.regionId, user.region));
-      
-      const regionDryerIds = regionDryers.map(d => d.id);
+      const { data: regionDryers } = await supabase
+        .from('dryers')
+        .select('id')
+        .eq('region_id', user.region);
+
+      const regionDryerIds = regionDryers?.map(d => d.id) || [];
       if (regionDryerIds.length > 0) {
         query = query.in('dryer_id', regionDryerIds);
       } else {
@@ -106,7 +100,7 @@ export async function GET(request: NextRequest) {
 
     // Generate CSV
     const csv = generateAlertsCSV(alerts || []);
-    
+
     return new NextResponse(csv, {
       status: 200,
       headers: {
@@ -148,7 +142,7 @@ function generateAlertsCSV(alerts: any[]): string {
   // CSV Rows
   const rows = alerts.map(alert => [
     alert.id,
-    (alert.dryers as any).dryer_id,
+    (alert.dryers as any)?.dryer_id || '',
     alert.alert_type,
     alert.priority,
     alert.status,

@@ -1,48 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 import {
   validateSensorReading,
-  detectAnomalies,
   logValidationFailure,
   calculateChargingStatus,
 } from './validation';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-// Create Supabase client with service role for bypassing RLS
-
 interface SensorDataPayload {
   dryer_id: string;
   timestamp?: string;
-  
+
   // Temperature sensors
   chamber_temp?: number;
   ambient_temp?: number;
   heater_temp?: number;
-  
+
   // Humidity sensors
   internal_humidity?: number;
   external_humidity?: number;
-  
+
   // Fan data
   fan_speed_rpm?: number;
   fan_speed_percentage?: number;
   fan_status?: boolean;
-  
+
   // Operational status
   heater_status?: boolean;
   door_status?: boolean;
-  
+
   // Power metrics
   solar_voltage?: number;
   battery_level?: number;
   battery_voltage?: number;
   power_consumption_w?: number;
   charging_status?: string;
-  
+
   // Metadata
   active_preset_id?: string;
   data_quality_score?: number;
@@ -61,9 +53,9 @@ const VALIDATION_RANGES = {
 function validateSensorValue(value: number | undefined, range: { min: number; max: number }, fieldName: string): { valid: boolean; error?: string } {
   if (value === undefined || value === null) return { valid: true };
   if (value < range.min || value > range.max) {
-    return { 
-      valid: false, 
-      error: `${fieldName} out of range: ${value} (expected ${range.min}-${range.max})` 
+    return {
+      valid: false,
+      error: `${fieldName} out of range: ${value} (expected ${range.min}-${range.max})`
     };
   }
   return { valid: true };
@@ -84,11 +76,11 @@ export async function POST(request: NextRequest) {
 
     // Validate sensor data using new validation middleware
     const validationResult = validateSensorReading(payload);
-    
+
     if (!validationResult.isValid) {
       logValidationFailure(payload.dryer_id, payload, validationResult);
       return NextResponse.json(
-        { 
+        {
           error: 'Sensor data validation failed',
           details: validationResult.errors,
           warnings: validationResult.warnings
@@ -131,14 +123,16 @@ export async function POST(request: NextRequest) {
     if (invalidFields.length > 0) {
       console.warn('Sensor data validation failed:', invalidFields.map(f => f.error).join(', '));
       return NextResponse.json(
-        { 
-          error: 'Sensor data validation failed', 
+        {
+          error: 'Sensor data validation failed',
           details: invalidFields.map(f => f.error),
           rejectedValues: true,
         },
         { status: 400 }
       );
     }
+
+    const supabase = getSupabaseAdmin();
 
     // Verify dryer exists and get its UUID
     const { data: dryer, error: dryerError } = await supabase
@@ -222,6 +216,8 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const supabase = getSupabaseAdmin();
 
     // Get dryer UUID
     const { data: dryer, error: dryerError } = await supabase

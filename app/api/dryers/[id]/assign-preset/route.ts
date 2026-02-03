@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-db';
 
 // POST - Assign preset to dryer
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const { preset_id } = body;
 
@@ -21,6 +17,8 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    const supabase = getSupabaseAdmin();
 
     // Verify preset exists and is active
     const { data: preset, error: presetError } = await supabase
@@ -47,7 +45,7 @@ export async function POST(
     const { data: dryer, error: dryerError } = await supabase
       .from('dryers')
       .select('id, dryer_id')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (dryerError || !dryer) {
@@ -64,7 +62,7 @@ export async function POST(
         current_preset_id: preset_id,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
