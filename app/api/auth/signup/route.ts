@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     // Check if user already exists
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
-    const userExists = existingUsers?.users?.find((u) => u.email === email);
+    const userExists = existingUsers?.users?.find((u: { email?: string }) => u.email === email);
 
     if (userExists) {
       return NextResponse.json(

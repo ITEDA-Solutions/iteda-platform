@@ -41,8 +41,9 @@ export function AnalyticsDashboard() {
 
       const presetCounts: Record<string, number> = {};
       presets?.forEach(p => {
-        if (p.presets) {
-          const key = `${p.presets.crop_type} - ${p.presets.region}`;
+        const preset = Array.isArray(p.presets) ? p.presets[0] : p.presets;
+        if (preset) {
+          const key = `${preset.crop_type} - ${preset.region}`;
           presetCounts[key] = (presetCounts[key] || 0) + 1;
         }
       });
@@ -65,7 +66,8 @@ export function AnalyticsDashboard() {
       // Regional performance
       const regionalData: Record<string, { count: number; runtime: number }> = {};
       dryers?.forEach(d => {
-        const region = d.regions?.name || 'Unknown';
+        const reg = Array.isArray(d.regions) ? d.regions[0] : d.regions;
+        const region = reg?.name || 'Unknown';
         if (!regionalData[region]) {
           regionalData[region] = { count: 0, runtime: 0 };
         }

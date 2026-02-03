@@ -36,18 +36,23 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform to camelCase for frontend consistency
-    const transformedAssignments = assignments?.map(a => ({
-      id: a.id,
-      technicianId: a.technician_id,
-      dryerId: a.dryer_id,
-      assignedAt: a.assigned_at,
-      assignedBy: a.assigned_by,
-      notes: a.notes,
-      technicianName: a.technician?.full_name || null,
-      technicianEmail: a.technician?.email || null,
-      dryerSerialNumber: a.dryer?.serial_number || null,
-      dryerStatus: a.dryer?.status || null,
-    })) || [];
+    const transformedAssignments = assignments?.map(a => {
+      // Supabase returns joined data - handle both array and object cases
+      const tech = Array.isArray(a.technician) ? a.technician[0] : a.technician;
+      const dry = Array.isArray(a.dryer) ? a.dryer[0] : a.dryer;
+      return {
+        id: a.id,
+        technicianId: a.technician_id,
+        dryerId: a.dryer_id,
+        assignedAt: a.assigned_at,
+        assignedBy: a.assigned_by,
+        notes: a.notes,
+        technicianName: tech?.full_name || null,
+        technicianEmail: tech?.email || null,
+        dryerSerialNumber: dry?.serial_number || null,
+        dryerStatus: dry?.status || null,
+      };
+    }) || [];
 
     return NextResponse.json(transformedAssignments);
   } catch (error: any) {

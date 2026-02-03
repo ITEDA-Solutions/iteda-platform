@@ -1,36 +1,54 @@
-import { db } from './src/lib/db';
-import { users, profiles, userRoles } from './src/lib/schema';
-import { eq } from 'drizzle-orm';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 async function checkUsers() {
     try {
-        console.log('Checking users in database...\n');
+        if (!supabaseUrl || !serviceRoleKey) {
+            console.error('Missing Supabase environment variables');
+            process.exit(1);
+        }
 
-        const allUsers = await db
-            .select({
-                id: users.id,
-                email: users.email,
-                createdAt: users.createdAt,
-                fullName: profiles.fullName,
-                role: userRoles.role,
-            })
-            .from(users)
-            .leftJoin(profiles, eq(users.id, profiles.id))
-            .leftJoin(userRoles, eq(profiles.id, userRoles.userId));
-
-        console.log(`Found ${allUsers.length} users:`);
-        allUsers.forEach((user, index) => {
-            console.log(`\n${index + 1}. ${user.email}`);
-            console.log(`   Name: ${user.fullName || 'N/A'}`);
-            console.log(`   Role: ${user.role || 'N/A'}`);
-            console.log(`   Created: ${user.createdAt}`);
+        const supabase = createClient(supabaseUrl, serviceRoleKey, {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false,
+            },
         });
 
-        if (allUsers.length === 0) {
+        console.log('Checking users in database...\n');
+
+        // Get all profiles with their roles
+        const { data: profiles, error } = await supabase
+            .from('profiles')
+            .select(`
+                id,
+                email,
+                full_name,
+                created_at,
+                staff_roles(role, region)
+            `)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            throw error;
+        }
+
+        console.log(`Found ${profiles?.length || 0} users:`);
+        profiles?.forEach((user, index) => {
+            const role = user.staff_roles?.[0];
+            console.log(`\n${index + 1}. ${user.email}`);
+            console.log(`   Name: ${user.full_name || 'N/A'}`);
+            console.log(`   Role: ${role?.role || 'N/A'}`);
+            console.log(`   Region: ${role?.region || 'N/A'}`);
+            console.log(`   Created: ${user.created_at}`);
+        });
+
+        if (!profiles || profiles.length === 0) {
             console.log('\n❌ No users found in the database!');
             console.log('\nℹ️  You need to create an admin user first.');
-            console.log('   Run: npm run db:seed');
-            console.log('   Or create a user through the signup page.');
+            console.log('   Create a user through the signup page.');
         }
     } catch (error) {
         console.error('Error checking users:', error);

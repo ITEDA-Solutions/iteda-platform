@@ -41,11 +41,12 @@ export function RecentActivityFeed({ limit = 10 }: { limit?: number }) {
         .limit(5);
 
       alerts?.forEach(alert => {
+        const dryer = Array.isArray(alert.dryers) ? alert.dryers[0] : alert.dryers;
         activities.push({
           id: alert.id,
           type: 'alert',
           title: alert.title || 'Alert',
-          description: `${alert.dryers?.dryer_id}: ${alert.message}`,
+          description: `${dryer?.dryer_id || 'Unknown'}: ${alert.message}`,
           timestamp: alert.triggered_at,
           severity: alert.priority,
           dryerId: alert.dryer_id,
@@ -61,11 +62,12 @@ export function RecentActivityFeed({ limit = 10 }: { limit?: number }) {
         .limit(3);
 
       maintenance?.forEach(m => {
+        const dryer = Array.isArray(m.dryers) ? m.dryers[0] : m.dryers;
         activities.push({
           id: m.id,
           type: 'maintenance',
           title: 'Maintenance Completed',
-          description: `${m.dryers?.dryer_id}: ${m.maintenance_type}`,
+          description: `${dryer?.dryer_id || 'Unknown'}: ${m.maintenance_type}`,
           timestamp: m.completed_date!,
           dryerId: m.dryer_id,
         });

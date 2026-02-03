@@ -257,8 +257,8 @@ export async function checkCriticalTemperatures(): Promise<AlertGenerationResult
       .gte('timestamp', new Date(Date.now() - 10 * 60 * 1000).toISOString()); // Last 10 minutes
 
     if (highTempReadings) {
-      const uniqueDryerIds = [...new Set(highTempReadings.map(r => r.dryer_id))];
-      
+      const uniqueDryerIds = Array.from(new Set(highTempReadings.map(r => r.dryer_id)));
+
       for (const dryerId of uniqueDryerIds) {
         const dryerResult = await generateAlertsForDryer(dryerId);
         result.alertsCreated += dryerResult.alertsCreated;

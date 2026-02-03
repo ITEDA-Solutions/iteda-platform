@@ -110,10 +110,13 @@ export function DryerMap() {
 
       if (error) throw error;
 
-      const formattedDryers = data.map(d => ({
-        ...d,
-        owner_name: d.owners?.name
-      }));
+      const formattedDryers = data.map(d => {
+        const owner = Array.isArray(d.owners) ? d.owners[0] : d.owners;
+        return {
+          ...d,
+          owner_name: owner?.name
+        };
+      });
 
       setDryers(formattedDryers);
     } catch (error) {

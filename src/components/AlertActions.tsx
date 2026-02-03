@@ -95,11 +95,11 @@ export function AlertActions({ alertId, dryerId, status, onActionComplete }: Ale
         throw new Error(result.error || 'Failed to resolve alert');
       }
 
-      toast.success('Alert resolved successfully');
+      toast({ title: 'Success', description: 'Alert resolved successfully' });
       setComment('');
       onActionComplete?.()
     } catch (error: any) {
-      toast.error(error.message || 'Failed to resolve alert');
+      toast({ title: 'Error', description: error.message || 'Failed to resolve alert', variant: 'destructive' });
     } finally {
       setIsResolving(false)
     }

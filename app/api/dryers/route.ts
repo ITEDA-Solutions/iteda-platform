@@ -50,20 +50,24 @@ export async function GET(request: NextRequest) {
       }
 
       // Transform to camelCase for frontend consistency
-      const transformedDryers = dryersData?.map(d => ({
-        id: d.id,
-        dryerId: d.dryer_id,
-        serialNumber: d.serial_number,
-        status: d.status,
-        deploymentDate: d.deployment_date,
-        locationLatitude: d.location_latitude,
-        locationLongitude: d.location_longitude,
-        locationAddress: d.location_address,
-        regionId: d.region_id,
-        createdAt: d.created_at,
-        updatedAt: d.updated_at,
-        regionName: d.region?.name || null,
-      })) || [];
+      const transformedDryers = dryersData?.map(d => {
+        // Supabase returns joined data - handle both array and object cases
+        const reg = Array.isArray(d.region) ? d.region[0] : d.region;
+        return {
+          id: d.id,
+          dryerId: d.dryer_id,
+          serialNumber: d.serial_number,
+          status: d.status,
+          deploymentDate: d.deployment_date,
+          locationLatitude: d.location_latitude,
+          locationLongitude: d.location_longitude,
+          locationAddress: d.location_address,
+          regionId: d.region_id,
+          createdAt: d.created_at,
+          updatedAt: d.updated_at,
+          regionName: reg?.name || null,
+        };
+      }) || [];
 
       return NextResponse.json(transformedDryers);
     }
@@ -104,20 +108,23 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const transformedDryers = dryersData?.map(d => ({
-        id: d.id,
-        dryerId: d.dryer_id,
-        serialNumber: d.serial_number,
-        status: d.status,
-        deploymentDate: d.deployment_date,
-        locationLatitude: d.location_latitude,
-        locationLongitude: d.location_longitude,
-        locationAddress: d.location_address,
-        regionId: d.region_id,
-        createdAt: d.created_at,
-        updatedAt: d.updated_at,
-        regionName: d.region?.name || null,
-      })) || [];
+      const transformedDryers = dryersData?.map(d => {
+        const reg = Array.isArray(d.region) ? d.region[0] : d.region;
+        return {
+          id: d.id,
+          dryerId: d.dryer_id,
+          serialNumber: d.serial_number,
+          status: d.status,
+          deploymentDate: d.deployment_date,
+          locationLatitude: d.location_latitude,
+          locationLongitude: d.location_longitude,
+          locationAddress: d.location_address,
+          regionId: d.region_id,
+          createdAt: d.created_at,
+          updatedAt: d.updated_at,
+          regionName: reg?.name || null,
+        };
+      }) || [];
 
       return NextResponse.json(transformedDryers);
     }
@@ -171,20 +178,23 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const transformedDryers = dryersData?.map(d => ({
-        id: d.id,
-        dryerId: d.dryer_id,
-        serialNumber: d.serial_number,
-        status: d.status,
-        deploymentDate: d.deployment_date,
-        locationLatitude: d.location_latitude,
-        locationLongitude: d.location_longitude,
-        locationAddress: d.location_address,
-        regionId: d.region_id,
-        createdAt: d.created_at,
-        updatedAt: d.updated_at,
-        regionName: d.region?.name || null,
-      })) || [];
+      const transformedDryers = dryersData?.map(d => {
+        const reg = Array.isArray(d.region) ? d.region[0] : d.region;
+        return {
+          id: d.id,
+          dryerId: d.dryer_id,
+          serialNumber: d.serial_number,
+          status: d.status,
+          deploymentDate: d.deployment_date,
+          locationLatitude: d.location_latitude,
+          locationLongitude: d.location_longitude,
+          locationAddress: d.location_address,
+          regionId: d.region_id,
+          createdAt: d.created_at,
+          updatedAt: d.updated_at,
+          regionName: reg?.name || null,
+        };
+      }) || [];
 
       return NextResponse.json(transformedDryers);
     }

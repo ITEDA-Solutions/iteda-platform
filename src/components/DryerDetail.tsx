@@ -38,8 +38,7 @@ const DryerDetail = () => {
           assigned_technician:profiles(*)
         `)
                 .eq("id", id)
-                .single()
-                .execute();
+                .single();
 
             if (error) throw error;
             return data;
@@ -71,8 +70,7 @@ const DryerDetail = () => {
                 .select("*")
                 .eq("dryer_id", id)
                 .gte("timestamp", startTime.toISOString())
-                .order("timestamp", { ascending: true })
-                .execute();
+                .order("timestamp", { ascending: true });
 
             if (error) throw error;
             return data;
