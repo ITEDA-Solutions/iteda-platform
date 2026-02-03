@@ -148,28 +148,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prepare sensor reading data
-    const sensorData = {
+    // Prepare sensor reading data (only include fields that exist in the schema)
+    const sensorData: Record<string, any> = {
       dryer_id: dryer.id,
       timestamp: payload.timestamp ? new Date(payload.timestamp).toISOString() : new Date().toISOString(),
-      chamber_temp: payload.chamber_temp,
-      ambient_temp: payload.ambient_temp,
-      heater_temp: payload.heater_temp,
-      internal_humidity: payload.internal_humidity,
-      external_humidity: payload.external_humidity,
-      fan_speed_rpm: payload.fan_speed_rpm,
-      fan_speed_percentage: payload.fan_speed_percentage,
-      fan_status: payload.fan_status,
-      heater_status: payload.heater_status,
-      door_status: payload.door_status,
-      solar_voltage: payload.solar_voltage,
-      battery_level: payload.battery_level,
-      battery_voltage: payload.battery_voltage,
-      power_consumption_w: payload.power_consumption_w,
-      charging_status: payload.charging_status,
-      active_preset_id: payload.active_preset_id,
-      data_quality_score: payload.data_quality_score || 1.0,
     };
+
+    // Only add optional fields if they have values
+    if (payload.chamber_temp !== undefined) sensorData.chamber_temp = payload.chamber_temp;
+    if (payload.ambient_temp !== undefined) sensorData.ambient_temp = payload.ambient_temp;
+    if (payload.heater_temp !== undefined) sensorData.heater_temp = payload.heater_temp;
+    if (payload.internal_humidity !== undefined) sensorData.internal_humidity = payload.internal_humidity;
+    if (payload.external_humidity !== undefined) sensorData.external_humidity = payload.external_humidity;
+    if (payload.fan_speed_rpm !== undefined) sensorData.fan_speed_rpm = payload.fan_speed_rpm;
+    if (payload.fan_speed_percentage !== undefined) sensorData.fan_speed_percentage = payload.fan_speed_percentage;
+    if (payload.fan_status !== undefined) sensorData.fan_status = payload.fan_status;
+    if (payload.heater_status !== undefined) sensorData.heater_status = payload.heater_status;
+    if (payload.door_status !== undefined) sensorData.door_status = payload.door_status;
+    if (payload.solar_voltage !== undefined) sensorData.solar_voltage = payload.solar_voltage;
+    if (payload.battery_level !== undefined) sensorData.battery_level = payload.battery_level;
+    if (payload.battery_voltage !== undefined) sensorData.battery_voltage = payload.battery_voltage;
+    if (payload.power_consumption_w !== undefined) sensorData.power_consumption_w = payload.power_consumption_w;
+    if (payload.charging_status !== undefined) sensorData.charging_status = payload.charging_status;
+    if (payload.active_preset_id !== undefined) sensorData.active_preset_id = payload.active_preset_id;
 
     // Insert sensor reading
     const { data: reading, error: insertError } = await supabase
