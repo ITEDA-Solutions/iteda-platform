@@ -1,15 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { verifyAuth, getAccessibleDryerIds } from '@/lib/supabase-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// GET - Fetch all dryers from Supabase
+// GET - Fetch all dryers from Supabase (with role-based filtering)
 export async function GET(request: NextRequest) {
   try {
-    const { data: dryers, error } = await supabase
+    // Verify authentication
+    const { user, error: authError } = await verifyAuth(request);
+    if (authError) return authError;
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get accessible dryer IDs based on user role
+    const accessibleDryerIds = await getAccessibleDryerIds(user);
+
+    let query = supabase
       .from('dryers')
       .select(`
         id,
@@ -29,6 +40,21 @@ export async function GET(request: NextRequest) {
         current_preset:presets(preset_id, crop_type)
       `)
       .order('created_at', { ascending: false });
+
+    // Apply filter for non-admin users
+    if (accessibleDryerIds !== null) {
+      if (accessibleDryerIds.length === 0) {
+        // No accessible dryers
+        return NextResponse.json({
+          success: true,
+          count: 0,
+          dryers: [],
+        });
+      }
+      query = query.in('id', accessibleDryerIds);
+    }
+
+    const { data: dryers, error } = await query;
 
     if (error) {
       console.error('Error fetching dryers:', error);

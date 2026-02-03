@@ -7,19 +7,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  RefreshCw, 
-  Search, 
-  MapPin, 
-  Battery, 
-  Signal, 
-  AlertTriangle, 
+import {
+  RefreshCw,
+  Search,
+  MapPin,
+  Battery,
+  Signal,
+  AlertTriangle,
   Clock,
   Plus,
   Download
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { exportToCSV, formatDryerDataForExport } from '@/lib/export-utils';
+import { authFetch } from '@/hooks/useAuthFetch';
 
 interface Dryer {
   id: string;
@@ -48,14 +49,13 @@ export default function DryersList() {
   const fetchDryers = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/data/dryers');
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
+      const { data, error } = await authFetch<{ dryers: Dryer[] }>('/api/data/dryers');
+
+      if (error) {
+        throw new Error(error.message);
       }
-      
-      setDryers(data.dryers || []);
+
+      setDryers(data?.dryers || []);
     } catch (error: any) {
       toast({
         title: 'Error',

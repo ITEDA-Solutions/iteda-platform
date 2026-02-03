@@ -6,13 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { 
-  ArrowLeft, 
-  Battery, 
-  Signal, 
-  MapPin, 
-  User, 
-  Settings, 
+import {
+  ArrowLeft,
+  Battery,
+  Signal,
+  MapPin,
+  User,
+  Settings,
   Activity,
   Download,
   FileText,
@@ -29,6 +29,7 @@ import Link from 'next/link'
 import { useToast } from '@/hooks/use-toast'
 import { DryerEditForm } from '@/components/DryerEditForm'
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog'
+import { authFetch } from '@/hooks/useAuthFetch'
 
 interface DryerDetail {
   id: string
@@ -73,14 +74,13 @@ export default function DryerDetailPage() {
 
   const fetchDryerDetails = async () => {
     try {
-      const response = await fetch(`/api/dryers/${params.id}`)
-      const data = await response.json()
-      
-      if (data.error) {
-        throw new Error(data.error)
+      const { data, error } = await authFetch<any>(`/api/dryers/${params.id}`)
+
+      if (error) {
+        throw new Error(error.message)
       }
-      
-      setDryer(data.dryer)
+
+      setDryer(data?.dryer || data)
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -454,21 +454,19 @@ export default function DryerDetailPage() {
         description="Are you sure you want to delete this dryer? This will permanently remove all associated data including sensor readings and alerts."
         itemName={`${dryer.dryer_id} (${dryer.serial_number})`}
         onConfirm={async () => {
-          const response = await fetch(`/api/dryers/${dryer.id}`, {
+          const { error } = await authFetch(`/api/dryers/${dryer.id}`, {
             method: 'DELETE',
           });
-          
-          const result = await response.json();
-          
-          if (!response.ok) {
-            throw new Error(result.error || 'Failed to delete dryer');
+
+          if (error) {
+            throw new Error(error.message || 'Failed to delete dryer');
           }
-          
+
           toast({
             title: 'Success',
             description: 'Dryer deleted successfully',
           });
-          
+
           router.push('/dashboard/dryers');
         }}
       />

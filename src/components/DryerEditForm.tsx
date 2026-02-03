@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { authFetch } from '@/hooks/useAuthFetch';
 
 interface DryerEditFormProps {
   open: boolean;
@@ -68,16 +69,13 @@ export function DryerEditForm({ open, onOpenChange, dryer, onSuccess }: DryerEdi
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/dryers/${dryer.id}`, {
+      const { data, error } = await authFetch(`/api/dryers/${dryer.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to update dryer');
+      if (error) {
+        throw new Error(error.message || 'Failed to update dryer');
       }
 
       toast.success('Dryer updated successfully!');
