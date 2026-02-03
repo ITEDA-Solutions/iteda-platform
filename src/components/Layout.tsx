@@ -19,12 +19,20 @@ export default function Layout({ children }: LayoutProps) {
   const { user, role, isSuperAdmin, isAdmin, isRegionalManager, isFieldTechnician } = usePermissions();
 
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error("Error signing out");
-    } else {
-      router.push("/auth");
-      toast.success("Signed out successfully");
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Sign out error:", error);
+        toast.error("Error signing out");
+      } else {
+        toast.success("Signed out successfully");
+      }
+      // Force a hard redirect to clear any cached state
+      window.location.href = "/auth";
+    } catch (err) {
+      console.error("Sign out exception:", err);
+      // Force redirect even on error
+      window.location.href = "/auth";
     }
   };
 
