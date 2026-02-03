@@ -88,9 +88,6 @@ const nextConfig = {
     ];
   },
 
-  // Turbopack configuration (Next.js 16+)
-  turbopack: {},
-
   webpack: (config, { isServer }) => {
     // Exclude server-only packages from client bundle
     if (!isServer) {
