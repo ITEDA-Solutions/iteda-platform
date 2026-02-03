@@ -61,6 +61,9 @@ const nextConfig = {
     ];
   },
 
+  // Turbopack configuration (required in Next.js 16 when webpack config exists)
+  turbopack: {},
+
   // Security headers
   async headers() {
     return [
