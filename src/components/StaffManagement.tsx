@@ -10,6 +10,7 @@ import { RefreshCw, Search, UserPlus, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { StaffForm } from './StaffForm';
 import { DeleteConfirmDialog } from './DeleteConfirmDialog';
+import { authFetch } from '@/hooks/useAuthFetch';
 
 interface Profile {
   id: string;
@@ -44,18 +45,20 @@ export default function StaffManagement() {
   const fetchStaff = async () => {
     setLoading(true);
     try {
-      const [profilesRes, rolesRes] = await Promise.all([
-        fetch('/api/data/profiles'),
-        fetch('/api/data/staff-roles'),
+      const [profilesResult, rolesResult] = await Promise.all([
+        authFetch<{ profiles: Profile[] }>('/api/data/profiles'),
+        authFetch<{ roles: StaffRole[] }>('/api/data/staff-roles'),
       ]);
 
-      const [profilesData, rolesData] = await Promise.all([
-        profilesRes.json(),
-        rolesRes.json(),
-      ]);
+      if (profilesResult.error) {
+        throw new Error(profilesResult.error.message);
+      }
+      if (rolesResult.error) {
+        throw new Error(rolesResult.error.message);
+      }
 
-      const profiles = profilesData.profiles || [];
-      const roles = rolesData.roles || [];
+      const profiles = profilesResult.data?.profiles || [];
+      const roles = rolesResult.data?.roles || [];
 
       // Combine profiles with their roles
       const staffMembers = profiles.map((profile: Profile) => ({
@@ -300,22 +303,20 @@ export default function StaffManagement() {
         itemName={selectedStaff ? `${selectedStaff.full_name} (${selectedStaff.email})` : ''}
         onConfirm={async () => {
           if (!selectedStaff) return;
-          
-          const response = await fetch(`/api/staff/${selectedStaff.id}`, {
+
+          const { error } = await authFetch(`/api/staff/${selectedStaff.id}`, {
             method: 'DELETE',
           });
-          
-          const result = await response.json();
-          
-          if (!response.ok) {
-            throw new Error(result.error || 'Failed to delete staff member');
+
+          if (error) {
+            throw new Error(error.message || 'Failed to delete staff member');
           }
-          
+
           toast({
             title: 'Success',
             description: 'Staff member deleted successfully',
           });
-          
+
           fetchStaff();
         }}
       />
