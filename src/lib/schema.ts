@@ -7,8 +7,8 @@ export const dryerStatusEnum = pgEnum('dryer_status', ['active', 'idle', 'offlin
 export const alertSeverityEnum = pgEnum('alert_severity', ['critical', 'warning', 'info']);
 export const alertStatusEnum = pgEnum('alert_status', ['active', 'acknowledged', 'resolved', 'dismissed']);
 
-// Staff table (simplified for local auth)
-export const staff = pgTable('staff', {
+// Staff table (users with authentication)
+export const users = pgTable('staff', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
   password: text('password').notNull(), // hashed password
@@ -18,7 +18,7 @@ export const staff = pgTable('staff', {
 
 // Profiles table
 export const profiles = pgTable('profiles', {
-  id: uuid('id').primaryKey().references(() => staff.id, { onDelete: 'cascade' }),
+  id: uuid('id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   email: text('email').notNull(),
   fullName: text('full_name'),
   phone: text('phone'),
@@ -45,7 +45,21 @@ export const regions = pgTable('regions', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Farmers table
+// Dryer assignments table (for field technicians)
+export const dryerAssignments = pgTable('dryer_assignments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  technicianId: uuid('technician_id').references(() => profiles.id, { onDelete: 'cascade' }).notNull(),
+  dryerId: uuid('dryer_id').references(() => dryers.id, { onDelete: 'cascade' }).notNull(),
+  assignedAt: timestamp('assigned_at').notNull().defaultNow(),
+  assignedBy: uuid('assigned_by').references(() => profiles.id),
+  notes: text('notes'),
+}, (table) => ({
+  uniqueAssignment: uniqueIndex('unique_technician_dryer').on(table.technicianId, table.dryerId),
+  technicianIdx: index('idx_assignments_technician').on(table.technicianId),
+  dryerIdx: index('idx_assignments_dryer').on(table.dryerId),
+}));
+
+// Farmers table (dryer owners)
 export const farmers = pgTable('farmers', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
@@ -172,14 +186,14 @@ export const alerts = pgTable('alerts', {
 }));
 
 // Relations
-export const staffRelations = relations(staff, ({ one }) => ({
+export const usersRelations = relations(users, ({ one }) => ({
   profile: one(profiles),
 }));
 
 export const profilesRelations = relations(profiles, ({ one, many }) => ({
-  staff: one(staff, {
+  user: one(users, {
     fields: [profiles.id],
-    references: [staff.id],
+    references: [users.id],
   }),
   staffRoles: many(staffRoles),
   assignedDryers: many(dryers),
@@ -245,6 +259,21 @@ export const alertsRelations = relations(alerts, ({ one }) => ({
   }),
   acknowledgedBy: one(profiles, {
     fields: [alerts.acknowledgedBy],
+    references: [profiles.id],
+  }),
+}));
+
+export const dryerAssignmentsRelations = relations(dryerAssignments, ({ one }) => ({
+  technician: one(profiles, {
+    fields: [dryerAssignments.technicianId],
+    references: [profiles.id],
+  }),
+  dryer: one(dryers, {
+    fields: [dryerAssignments.dryerId],
+    references: [dryers.id],
+  }),
+  assignedBy: one(profiles, {
+    fields: [dryerAssignments.assignedBy],
     references: [profiles.id],
   }),
 }));

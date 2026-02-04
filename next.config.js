@@ -1,7 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['smartdryers.itedasolutions.com', 'api.smartdryers.itedasolutions.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'smartdryers.itedasolutions.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.smartdryers.itedasolutions.com',
+      },
+    ],
   },
   
   // Subdomain routing configuration
@@ -51,6 +60,9 @@ const nextConfig = {
       },
     ];
   },
+
+  // Turbopack configuration (required in Next.js 16 when webpack config exists)
+  turbopack: {},
 
   // Security headers
   async headers() {

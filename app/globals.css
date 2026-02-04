@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* SmartDryers Platform - Custom Color Scheme */
+    /* Primary: Green #028037, Yellow #FCD85D, Black #060606 */
+    
+    --background: 0 0% 98%;
+    --foreground: 0 0% 2%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 2%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 2%;
+
+    /* Primary Green #028037 = hsl(145, 97%, 25%) */
+    --primary: 145 97% 25%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Light secondary surfaces */
+    --secondary: 145 15% 95%;
+    --secondary-foreground: 145 97% 15%;
+
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 40%;
+
+    /* Yellow accent #FCD85D = hsl(46, 96%, 68%) */
+    --accent: 46 96% 68%;
+    --accent-foreground: 0 0% 10%;
+
+    /* Alert colors */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Success uses primary green */
+    --success: 145 97% 25%;
+    --success-foreground: 0 0% 100%;
+
+    /* Warning uses yellow */
+    --warning: 46 96% 68%;
+    --warning-foreground: 0 0% 10%;
+
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 145 97% 25%;
+
+    --radius: 0.5rem;
+
+    /* Status colors for dryers */
+    --status-active: 145 97% 25%;
+    --status-active-foreground: 0 0% 100%;
+    --status-idle: 46 96% 68%;
+    --status-offline: 0 84% 60%;
+    --status-offline-foreground: 0 0% 100%;
+    --status-maintenance: 262 83% 58%;
+
+    /* Chart colors - using primary palette */
+    --chart-1: 145 97% 25%; /* Primary green */
+    --chart-2: 145 70% 40%; /* Lighter green */
+    --chart-3: 46 96% 68%;  /* Yellow */
+    --chart-4: 145 50% 55%; /* Soft green */
+    --chart-5: 0 0% 45%;    /* Gray */
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(145 97% 25%) 0%, hsl(145 80% 35%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(145 97% 25%) 0%, hsl(145 70% 40%) 100%);
+
+    /* Sidebar - dark with green accent */
+    --sidebar-background: 0 0% 4%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 145 97% 25%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 0 0% 15%;
+    --sidebar-ring: 145 97% 25%;
+  }
+
+  .dark {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 95%;
+
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 95%;
+
+    /* Brighter green for dark mode */
+    --primary: 145 85% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 145 15% 15%;
+    --secondary-foreground: 0 0% 95%;
+
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%;
+
+    /* Yellow accent */
+    --accent: 46 96% 68%;
+    --accent-foreground: 0 0% 10%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 145 85% 35%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 46 96% 68%;
+    --warning-foreground: 0 0% 10%;
+
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 145 85% 35%;
+
+    --status-active: 145 85% 35%;
+    --status-active-foreground: 0 0% 100%;
+    --status-idle: 46 96% 68%;
+    --status-offline: 0 72% 55%;
+    --status-offline-foreground: 0 0% 100%;
+    --status-maintenance: 262 83% 58%;
+
+    --chart-1: 145 85% 35%;
+    --chart-2: 145 70% 50%;
+    --chart-3: 46 96% 68%;
+    --chart-4: 145 50% 65%;
+    --chart-5: 0 0% 65%;
+
+    --sidebar-background: 0 0% 3%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 145 85% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 8%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 0 0% 12%;
+    --sidebar-ring: 145 85% 35%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

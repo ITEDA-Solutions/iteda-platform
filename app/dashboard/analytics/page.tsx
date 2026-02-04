@@ -1,5 +1,7 @@
-import Analytics from '../../../src/pages/Analytics'
+'use client'
+
+import { AnalyticsDashboard } from '@/components/AnalyticsDashboard'
 
 export default function AnalyticsPage() {
-  return <Analytics />
+  return <AnalyticsDashboard />
 }

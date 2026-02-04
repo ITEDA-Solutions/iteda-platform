@@ -1,96 +1,116 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { getSupabaseAdmin } from '@/lib/supabase-db';
+import { validateUserManagementAccess } from '@/lib/rbac-middleware';
+
 export const dynamic = 'force-dynamic';
-import { staff as users, profiles, staffRoles as userRoles } from '@/lib/schema';
-import { AuthService } from '@/lib/auth';
-import { eq } from 'drizzle-orm';
 
 // Update user profile and role
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Verify admin access
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    // Verify super admin access (only super admins can update users)
+    const { user: currentUser, error } = await validateUserManagementAccess(request);
+    if (error) return error;
 
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const currentUser = await AuthService.verifyToken(token);
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const isAdmin = await AuthService.isAdmin(currentUser.id);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
-
-    const { id } = params;
+    const { id } = await params;
     const { fullName, phone, role, region } = await request.json();
 
+    const supabase = getSupabaseAdmin();
+
     // Check if user exists
-    const existingUser = await db.select().from(users).where(eq(users.id, id)).limit(1);
-    if (existingUser.length === 0) {
+    const { data: existingUser, error: checkError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (checkError || !existingUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Update profile if provided
     if (fullName !== undefined || phone !== undefined) {
-      await db
-        .update(profiles)
-        .set({
-          ...(fullName !== undefined && { fullName }),
-          ...(phone !== undefined && { phone }),
-        })
-        .where(eq(profiles.id, id));
+      const updateData: any = {};
+      if (fullName !== undefined) updateData.full_name = fullName;
+      if (phone !== undefined) updateData.phone = phone;
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', id);
+
+      if (profileError) {
+        throw new Error(`Failed to update profile: ${profileError.message}`);
+      }
     }
 
     // Update role if provided
     if (role !== undefined) {
       // Check if user role exists
-      const existingRole = await db.select().from(userRoles).where(eq(userRoles.staffId, id)).limit(1);
+      const { data: existingRole } = await supabase
+        .from('staff_roles')
+        .select('id')
+        .eq('staff_id', id)
+        .maybeSingle();
 
-      if (existingRole.length > 0) {
+      if (existingRole) {
         // Update existing role
-        await db
-          .update(userRoles)
-          .set({
-            role,
-            ...(region !== undefined && { region }),
-          })
-          .where(eq(userRoles.staffId, id));
+        const updateData: any = { role };
+        if (region !== undefined) updateData.region = region;
+
+        const { error: roleError } = await supabase
+          .from('staff_roles')
+          .update(updateData)
+          .eq('staff_id', id);
+
+        if (roleError) {
+          throw new Error(`Failed to update role: ${roleError.message}`);
+        }
       } else {
         // Create new role
-        await db.insert(userRoles).values({
-          staffId: id,
-          role,
-          region,
-        });
+        const { error: roleError } = await supabase
+          .from('staff_roles')
+          .insert({
+            staff_id: id,
+            role,
+            region,
+          });
+
+        if (roleError) {
+          throw new Error(`Failed to create role: ${roleError.message}`);
+        }
       }
     }
 
     // Return updated user data
-    const updatedUser = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        createdAt: users.createdAt,
-        fullName: profiles.fullName,
-        phone: profiles.phone,
-        role: userRoles.role,
-        region: userRoles.region,
-      })
-      .from(users)
-      .leftJoin(profiles, eq(users.id, profiles.id))
-      .leftJoin(userRoles, eq(profiles.id, userRoles.staffId))
-      .where(eq(users.id, id))
-      .limit(1);
+    const { data: updatedUser, error: fetchError } = await supabase
+      .from('profiles')
+      .select(`
+        id,
+        email,
+        full_name,
+        phone,
+        created_at,
+        staff_roles(role, region)
+      `)
+      .eq('id', id)
+      .single();
 
-    return NextResponse.json(updatedUser[0]);
+    if (fetchError) {
+      throw new Error(`Failed to fetch updated user: ${fetchError.message}`);
+    }
+
+    return NextResponse.json({
+      id: updatedUser.id,
+      email: updatedUser.email,
+      createdAt: updatedUser.created_at,
+      fullName: updatedUser.full_name,
+      phone: updatedUser.phone,
+      role: updatedUser.staff_roles?.[0]?.role || null,
+      region: updatedUser.staff_roles?.[0]?.region || null,
+    });
   } catch (error: any) {
     console.error('Error updating user:', error);
     return NextResponse.json(
@@ -103,42 +123,59 @@ export async function PUT(
 // Delete user
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Verify admin access
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    // Verify super admin access (only super admins can delete users)
+    const { user: currentUser, error } = await validateUserManagementAccess(request);
+    if (error) return error;
 
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const currentUser = await AuthService.verifyToken(token);
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const isAdmin = await AuthService.isAdmin(currentUser.id);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
-
-    const { id } = params;
+    const { id } = await params;
 
     // Prevent deleting self
     if (currentUser.id === id) {
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
     }
 
+    const supabase = getSupabaseAdmin();
+
     // Check if user exists
-    const existingUser = await db.select().from(users).where(eq(users.id, id)).limit(1);
-    if (existingUser.length === 0) {
+    const { data: existingUser, error: checkError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (checkError || !existingUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Delete user (cascade will handle profiles and roles)
-    await db.delete(users).where(eq(users.id, id));
+    // Delete user role first
+    const { error: roleError } = await supabase
+      .from('staff_roles')
+      .delete()
+      .eq('staff_id', id);
+
+    if (roleError) {
+      console.error('Error deleting user role:', roleError);
+    }
+
+    // Delete profile
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', id);
+
+    if (profileError) {
+      console.error('Error deleting profile:', profileError);
+    }
+
+    // Delete auth user
+    const { error: authError } = await supabase.auth.admin.deleteUser(id);
+
+    if (authError) {
+      throw new Error(`Failed to delete user: ${authError.message}`);
+    }
 
     return NextResponse.json({ message: 'User deleted successfully' });
   } catch (error: any) {

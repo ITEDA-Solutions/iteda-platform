@@ -1,5 +1,5 @@
-import Alerts from '../../../src/pages/Alerts'
+import AlertsList from '@/components/AlertsList'
 
 export default function AlertsPage() {
-  return <Alerts />
+  return <AlertsList />
 }

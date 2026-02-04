@@ -2,6 +2,7 @@
 
 import { LayoutDashboard, Wind, AlertTriangle, Users, Settings, BarChart3 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { usePermissions } from "@/hooks/usePermissions";
 
 import {
   Sidebar,
@@ -16,17 +17,23 @@ import {
 } from "@/components/ui/sidebar";
 
 const navigationItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Dryers", url: "/dashboard/dryers", icon: Wind },
-  { title: "Alerts", url: "/dashboard/alerts", icon: AlertTriangle },
-  { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
-  { title: "Staff", url: "/dashboard/staff", icon: Users },
-  { title: "Presets", url: "/dashboard/presets", icon: Settings },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ['super_admin', 'admin', 'regional_manager', 'field_technician'] },
+  { title: "Dryers", url: "/dashboard/dryers", icon: Wind, roles: ['super_admin', 'admin', 'regional_manager', 'field_technician'] },
+  { title: "Alerts", url: "/dashboard/alerts", icon: AlertTriangle, roles: ['super_admin', 'admin', 'regional_manager', 'field_technician'] },
+  { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3, roles: ['super_admin', 'admin', 'regional_manager'] },
+  { title: "Staff", url: "/dashboard/staff", icon: Users, roles: ['super_admin'] },
+  { title: "Presets", url: "/dashboard/presets", icon: Settings, roles: ['super_admin', 'admin'] },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const { role, isAuthenticated } = usePermissions();
+
+  // Filter navigation items based on user role
+  const visibleItems = navigationItems.filter(item => 
+    !item.roles || !role || item.roles.includes(role)
+  );
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
@@ -45,7 +52,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigationItems.map((item) => (
+              {visibleItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink

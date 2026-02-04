@@ -19,8 +19,7 @@ export const useUserRole = () => {
         .from("staff_roles")
         .select("role")
         .eq("staff_id", session.user.id)
-        .single()
-        .execute();
+        .maybeSingle();
 
       if (error) {
         console.error("Error fetching user role:", error);

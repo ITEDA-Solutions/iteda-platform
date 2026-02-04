@@ -1,5 +1,5 @@
-import Presets from '../../../src/pages/Presets'
+import PresetsList from '@/components/PresetsList'
 
 export default function PresetsPage() {
-  return <Presets />
+  return <PresetsList />
 }

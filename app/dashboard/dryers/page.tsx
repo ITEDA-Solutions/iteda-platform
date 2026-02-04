@@ -1,5 +1,5 @@
-import Dryers from '../../../src/pages/Dryers'
+import DryersList from '@/components/DryersList'
 
 export default function DryersPage() {
-  return <Dryers />
+  return <DryersList />
 }

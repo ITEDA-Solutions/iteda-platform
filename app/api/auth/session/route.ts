@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
-import { AuthService } from '@/lib/auth';
+import { getServiceClient } from '@/lib/supabase-server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,21 +8,37 @@ export async function GET(request: NextRequest) {
     const token = authHeader?.replace('Bearer ', '');
 
     if (!token) {
-      return NextResponse.json({ session: null });
+      return NextResponse.json({ session: null }, { status: 401 });
     }
 
-    const user = await AuthService.verifyToken(token);
+    const supabase = getServiceClient();
 
-    if (!user) {
-      return NextResponse.json({ session: null });
+    // Verify the token with Supabase Auth
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      return NextResponse.json({ session: null }, { status: 401 });
     }
+
+    // Get user profile with role
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*, staff_roles(role, region)')
+      .eq('id', user.id)
+      .single();
 
     return NextResponse.json({
-      user,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: profile?.full_name || user.user_metadata?.full_name,
+        role: profile?.staff_roles?.role,
+        region: profile?.staff_roles?.region,
+      },
       token,
     });
   } catch (error: any) {
     console.error('Session error:', error);
-    return NextResponse.json({ session: null });
+    return NextResponse.json({ session: null }, { status: 500 });
   }
 }
