@@ -20,19 +20,36 @@ export default function Layout({ children }: LayoutProps) {
 
   const handleSignOut = async () => {
     try {
+      console.log("Starting sign out process...");
+      
+      // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
+      
       if (error) {
         console.error("Sign out error:", error);
-        toast.error("Error signing out");
+        toast.error("Error signing out: " + error.message);
       } else {
+        console.log("Successfully signed out from Supabase");
         toast.success("Signed out successfully");
       }
+      
+      // Clear any local storage items
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+        sessionStorage.clear();
+      }
+      
       // Force a hard redirect to clear any cached state
-      window.location.href = "/auth";
-    } catch (err) {
+      setTimeout(() => {
+        window.location.href = "/auth";
+      }, 500);
+    } catch (err: any) {
       console.error("Sign out exception:", err);
+      toast.error("Sign out failed: " + err.message);
       // Force redirect even on error
-      window.location.href = "/auth";
+      setTimeout(() => {
+        window.location.href = "/auth";
+      }, 500);
     }
   };
 

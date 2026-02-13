@@ -42,15 +42,19 @@ export const usePermissions = () => {
       if (!session?.user?.id) return null;
 
       try {
-        // Get the access token from the session
-        const { data } = await supabase.auth.getSession();
-        const accessToken = data.session?.access_token;
-
+        console.log("Fetching role for user:", session.user.id);
+        
+        // Send userId in POST body
         const response = await fetch('/api/auth/user-role', {
+          method: 'POST',
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            userId: session.user.id
+          }),
         });
+        
         const result = await response.json();
 
         if (!response.ok) {

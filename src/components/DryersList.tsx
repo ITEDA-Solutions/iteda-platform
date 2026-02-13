@@ -150,15 +150,15 @@ export default function DryersList() {
   const counts = getStatusCounts();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dryers</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Dryers</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">
             View and manage all dryers in the system
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button 
             onClick={() => {
               const formattedData = formatDryerDataForExport(dryers);
@@ -166,62 +166,66 @@ export default function DryersList() {
             }}
             variant="outline"
             disabled={dryers.length === 0}
+            className="text-xs sm:text-sm"
           >
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
+            <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Export CSV</span>
+            <span className="sm:hidden">Export</span>
           </Button>
           <Link href="/dashboard/dryers/register">
-            <Button className="bg-green-600 hover:bg-green-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Register Dryer
+            <Button className="bg-green-600 hover:bg-green-700 text-xs sm:text-sm">
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Register Dryer</span>
+              <span className="sm:hidden">Register</span>
             </Button>
           </Link>
-          <Button onClick={fetchDryers} disabled={loading} variant="outline">
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+          <Button onClick={fetchDryers} disabled={loading} variant="outline" className="text-xs sm:text-sm">
+            <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+            <span className="sm:hidden">↻</span>
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Dryers</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Total Dryers</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{counts.total}</div>
+            <div className="text-lg sm:text-2xl font-bold">{counts.total}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Active</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Active</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{counts.active}</div>
+            <div className="text-lg sm:text-2xl font-bold text-green-600">{counts.active}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Idle</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Idle</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{counts.idle}</div>
+            <div className="text-lg sm:text-2xl font-bold text-yellow-600">{counts.idle}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Offline</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Offline</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{counts.offline}</div>
+            <div className="text-lg sm:text-2xl font-bold text-red-600">{counts.offline}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Maintenance</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Maintenance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{counts.maintenance}</div>
+            <div className="text-lg sm:text-2xl font-bold text-orange-600">{counts.maintenance}</div>
           </CardContent>
         </Card>
       </div>
@@ -235,10 +239,10 @@ export default function DryersList() {
           <div className="flex items-center gap-2 mt-4">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by dryer ID, serial number, or owner..."
+              placeholder="Search dryers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm"
+              className="w-full sm:max-w-sm text-sm"
             />
           </div>
         </CardHeader>
@@ -252,20 +256,20 @@ export default function DryersList() {
               {searchTerm ? 'No dryers found matching your search.' : 'No dryers found in database.'}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Dryer ID</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Owner</TableHead>
-                    <TableHead>Region</TableHead>
-                    <TableHead>Battery</TableHead>
-                    <TableHead>Signal</TableHead>
-                    <TableHead>Alerts</TableHead>
-                    <TableHead>Last Comm</TableHead>
-                    <TableHead>Days Active</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="min-w-[120px]">Dryer ID</TableHead>
+                    <TableHead className="min-w-[80px]">Status</TableHead>
+                    <TableHead className="hidden md:table-cell min-w-[120px]">Owner</TableHead>
+                    <TableHead className="hidden lg:table-cell">Region</TableHead>
+                    <TableHead className="hidden sm:table-cell">Battery</TableHead>
+                    <TableHead className="hidden lg:table-cell">Signal</TableHead>
+                    <TableHead className="min-w-[80px]">Alerts</TableHead>
+                    <TableHead className="hidden md:table-cell">Last Comm</TableHead>
+                    <TableHead className="hidden xl:table-cell">Days Active</TableHead>
+                    <TableHead className="min-w-[100px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -278,7 +282,7 @@ export default function DryersList() {
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(dryer.status)}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="flex flex-col">
                           <span className="text-sm">{dryer.owner?.name || 'N/A'}</span>
                           {dryer.location_address && (
@@ -289,10 +293,10 @@ export default function DryersList() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <Badge variant="outline">{dryer.region?.name || 'N/A'}</Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <div className="flex items-center gap-2">
                           {getBatteryIcon(dryer.battery_level)}
                           <div className="flex flex-col">
@@ -307,7 +311,7 @@ export default function DryersList() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <div className="flex items-center gap-2">
                           {getSignalIcon(dryer.signal_strength)}
                           <span className="text-sm">
@@ -327,7 +331,7 @@ export default function DryersList() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="flex items-center gap-1 text-sm">
                           <Clock className="h-3 w-3 text-muted-foreground" />
                           <span className={
@@ -340,7 +344,7 @@ export default function DryersList() {
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden xl:table-cell">
                         <div className="flex flex-col">
                           <span className="text-sm font-medium">
                             {getDaysActive(dryer.deployment_date)} days
@@ -354,8 +358,9 @@ export default function DryersList() {
                       </TableCell>
                       <TableCell>
                         <Link href={`/dashboard/dryers/${dryer.id}`}>
-                          <Button variant="outline" size="sm">
-                            View Details
+                          <Button variant="outline" size="sm" className="text-xs sm:text-sm">
+                            <span className="hidden sm:inline">View Details</span>
+                            <span className="sm:hidden">View</span>
                           </Button>
                         </Link>
                       </TableCell>
