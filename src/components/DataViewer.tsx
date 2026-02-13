@@ -104,51 +104,51 @@ export default function DataViewer() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Supabase Data Viewer</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Supabase Data Viewer</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">
             View all data from your Supabase tables
           </p>
         </div>
-        <Button onClick={fetchData} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+        <Button onClick={fetchData} disabled={loading} className="text-xs sm:text-sm">
+          <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh Data
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Dryers</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Dryers</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dryers.length}</div>
+            <div className="text-lg sm:text-2xl font-bold">{dryers.length}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Alerts</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Alerts</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{alerts.length}</div>
+            <div className="text-lg sm:text-2xl font-bold">{alerts.length}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Presets</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Presets</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{presets.length}</div>
+            <div className="text-lg sm:text-2xl font-bold">{presets.length}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Regions</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Regions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{regions.length}</div>
+            <div className="text-lg sm:text-2xl font-bold">{regions.length}</div>
           </CardContent>
         </Card>
       </div>

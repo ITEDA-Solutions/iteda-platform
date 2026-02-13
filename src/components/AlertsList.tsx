@@ -86,61 +86,61 @@ export default function AlertsList() {
   const counts = getCounts();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Alerts</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Alerts</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Monitor and manage system alerts
           </p>
         </div>
-        <Button onClick={() => fetchAlerts(activeTab)} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+        <Button onClick={() => fetchAlerts(activeTab)} disabled={loading} className="text-xs sm:text-sm">
+          <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Alerts</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Total Alerts</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{counts.total}</div>
+            <div className="text-lg sm:text-2xl font-bold">{counts.total}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Critical</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Critical</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{counts.critical}</div>
+            <div className="text-lg sm:text-2xl font-bold text-red-600">{counts.critical}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Warning</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Warning</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{counts.warning}</div>
+            <div className="text-lg sm:text-2xl font-bold text-yellow-600">{counts.warning}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Info</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Info</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{counts.info}</div>
+            <div className="text-lg sm:text-2xl font-bold text-blue-600">{counts.info}</div>
           </CardContent>
         </Card>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="acknowledged">Acknowledged</TabsTrigger>
-          <TabsTrigger value="resolved">Resolved</TabsTrigger>
-          <TabsTrigger value="dismissed">Dismissed</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+          <TabsTrigger value="active" className="text-xs sm:text-sm">Active</TabsTrigger>
+          <TabsTrigger value="acknowledged" className="text-xs sm:text-sm">Acknowledged</TabsTrigger>
+          <TabsTrigger value="resolved" className="text-xs sm:text-sm">Resolved</TabsTrigger>
+          <TabsTrigger value="dismissed" className="text-xs sm:text-sm">Dismissed</TabsTrigger>
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-4">
@@ -161,35 +161,35 @@ export default function AlertsList() {
                   No {activeTab} alerts found.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Severity</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Message</TableHead>
-                        <TableHead>Dryer</TableHead>
-                        <TableHead>Current Value</TableHead>
-                        <TableHead>Threshold</TableHead>
-                        <TableHead>Created</TableHead>
+                        <TableHead className="min-w-[100px]">Severity</TableHead>
+                        <TableHead className="min-w-[120px]">Type</TableHead>
+                        <TableHead className="min-w-[200px]">Message</TableHead>
+                        <TableHead className="hidden md:table-cell">Dryer</TableHead>
+                        <TableHead className="hidden lg:table-cell">Current Value</TableHead>
+                        <TableHead className="hidden lg:table-cell">Threshold</TableHead>
+                        <TableHead className="hidden sm:table-cell">Created</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {alerts.map((alert) => (
                         <TableRow key={alert.id}>
                           <TableCell>{getSeverityBadge(alert.severity)}</TableCell>
-                          <TableCell className="font-medium">
+                          <TableCell className="font-medium text-xs sm:text-sm">
                             {alert.type.replace(/_/g, ' ').toUpperCase()}
                           </TableCell>
-                          <TableCell className="max-w-md">{alert.message}</TableCell>
-                          <TableCell>{alert.dryer?.dryer_id || 'N/A'}</TableCell>
-                          <TableCell>
+                          <TableCell className="max-w-md text-xs sm:text-sm">{alert.message}</TableCell>
+                          <TableCell className="hidden md:table-cell">{alert.dryer?.dryer_id || 'N/A'}</TableCell>
+                          <TableCell className="hidden lg:table-cell">
                             {alert.current_value !== null ? alert.current_value : 'N/A'}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden lg:table-cell">
                             {alert.threshold_value !== null ? alert.threshold_value : 'N/A'}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden sm:table-cell text-xs sm:text-sm">
                             {new Date(alert.created_at).toLocaleString()}
                           </TableCell>
                         </TableRow>

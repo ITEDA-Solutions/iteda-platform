@@ -1,50 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-db';
-import { cookies } from 'next/headers';
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    // Get the access token from the Authorization header
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    const body = await request.json();
+    const { userId } = body;
 
-    if (!token) {
-      // Try to get session from cookies
-      const cookieStore = await cookies();
-      const accessToken = cookieStore.get('sb-access-token')?.value ||
-                         cookieStore.get('supabase-auth-token')?.value;
-
-      if (!accessToken) {
-        return NextResponse.json(
-          { error: 'Not authenticated - no token found', role: null },
-          { status: 401 }
-        );
-      }
-    }
-
-    const supabase = getSupabaseAdmin();
-
-    // Use admin client to get user from token
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token || '');
-
-    if (userError || !user) {
+    if (!userId) {
       return NextResponse.json(
-        { error: 'Not authenticated - invalid token', role: null },
-        { status: 401 }
+        { error: 'User ID is required', role: null },
+        { status: 400 }
       );
     }
 
-    const userId = user.id;
+    console.log('[user-role API] Fetching role for user:', userId);
 
     // Use admin client to bypass RLS and get user role
-    const { data: roleData, error: roleError } = await supabase
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data: roleData, error: roleError } = await supabaseAdmin
       .from('staff_roles')
       .select('role, region')
       .eq('staff_id', userId)
       .maybeSingle();
 
     if (roleError) {
-      console.error('Error fetching user role from DB:', roleError);
+      console.error('[user-role API] Error fetching user role from DB:', roleError);
       return NextResponse.json(
         { error: 'Failed to fetch role', details: roleError, role: null },
         { status: 500 }
@@ -52,12 +32,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (!roleData) {
+      console.log('[user-role API] No role found for user:', userId);
       return NextResponse.json(
         { role: null, region: null, message: 'No role assigned' },
         { status: 200 }
       );
     }
 
+    console.log('[user-role API] Role found:', roleData);
     return NextResponse.json(
       {
         role: roleData.role,
@@ -67,7 +49,7 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     );
   } catch (error: any) {
-    console.error('Error in user-role endpoint:', error);
+    console.error('[user-role API] Error in user-role endpoint:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error.message, role: null },
       { status: 500 }

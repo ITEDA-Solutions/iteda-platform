@@ -75,104 +75,47 @@ export function MainDashboard() {
   };
 
   const fetchStats = async () => {
-    // Fetch dryer counts
-    const { data: dryers } = await supabase
-      .from('dryers')
-      .select('status, last_communication, battery_level');
-
-    const total = dryers?.length || 0;
-    const active = dryers?.filter(d => d.status === 'active').length || 0;
-    const offline = dryers?.filter(d => {
-      if (!d.last_communication) return true;
-      const lastComm = new Date(d.last_communication);
-      const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      return lastComm < hourAgo;
-    }).length || 0;
-    const maintenance = dryers?.filter(d => d.status === 'maintenance').length || 0;
-
-    // Fetch alerts
-    const { data: alerts } = await supabase
-      .from('alerts')
-      .select('severity, status');
-
-    const activeAlerts = alerts?.filter(a => a.status === 'active') || [];
-    const criticalAlerts = activeAlerts.filter(a => a.severity === 'critical').length || 0;
-
-    // Fetch recent sensor readings for averages
-    const { data: sensorReadings } = await supabase
-      .from('sensor_readings')
-      .select('battery_level, chamber_temp')
-      .order('timestamp', { ascending: false })
-      .limit(100);
-
-    const avgBattery = sensorReadings?.reduce((sum, r) => sum + (r.battery_level || 0), 0) / (sensorReadings?.length || 1);
-    const avgTemp = sensorReadings?.reduce((sum, r) => sum + (r.chamber_temp || 0), 0) / (sensorReadings?.length || 1);
-
-    setStats({
-      total_dryers: total,
-      active_dryers: active,
-      offline_dryers: offline,
-      maintenance_needed: maintenance,
-      critical_alerts: criticalAlerts,
-      total_alerts: activeAlerts.length,
-      avg_battery_level: Math.round(avgBattery),
-      avg_chamber_temp: Math.round(avgTemp * 10) / 10
-    });
+    try {
+      const response = await fetch('/api/dashboard/stats');
+      const data = await response.json();
+      
+      if (response.ok && data.stats) {
+        setStats(data.stats);
+      } else {
+        console.error('Error fetching stats:', data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
   };
 
   const fetchRecentAlerts = async () => {
-    const { data } = await supabase
-      .from('alerts')
-      .select('id, type, severity, message, created_at, status, dryer_id')
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    if (data) {
-      // Fetch dryer info separately
-      const dryerIds = data.map(a => a.dryer_id);
-      const { data: dryersData } = await supabase
-        .from('dryers')
-        .select('id, dryer_id')
-        .in('id', dryerIds);
-
-      setRecentAlerts(data.map(alert => {
-        const dryer = dryersData?.find(d => d.id === alert.dryer_id);
-        return {
-          id: alert.id,
-          dryer_id: alert.dryer_id,
-          dryer_identifier: dryer?.dryer_id || 'Unknown',
-          alert_type: alert.type,
-          priority: alert.severity,
-          title: alert.type.replace(/_/g, ' ').toUpperCase(),
-          message: alert.message,
-          triggered_at: alert.created_at,
-          status: alert.status,
-        };
-      }));
+    try {
+      const response = await fetch('/api/dashboard/alerts');
+      const data = await response.json();
+      
+      if (response.ok && data.alerts) {
+        setRecentAlerts(data.alerts);
+      } else {
+        console.error('Error fetching alerts:', data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching alerts:', error);
     }
   };
 
   const fetchDryerLocations = async () => {
-    const { data } = await supabase
-      .from('dryers')
-      .select(`
-        id,
-        dryer_id,
-        location_latitude,
-        location_longitude,
-        location_address,
-        status,
-        regions(name)
-      `)
-      .not('location_latitude', 'is', null)
-      .not('location_longitude', 'is', null);
-
-    if (data) {
-      setDryerLocations(data.map(d => ({
-        ...d,
-        region_name: (d.regions as any)?.name || 'Unknown'
-      })));
+    try {
+      const response = await fetch('/api/dashboard/locations');
+      const data = await response.json();
+      
+      if (response.ok && data.locations) {
+        setDryerLocations(data.locations);
+      } else {
+        console.error('Error fetching locations:', data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching locations:', error);
     }
   };
 
@@ -194,55 +137,55 @@ export function MainDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Fleet overview and system status</p>
+        <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Fleet overview and system status</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Dryers</CardTitle>
-            <Wind className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Total Dryers</CardTitle>
+            <Wind className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.total_dryers || 0}</div>
+            <div className="text-xl sm:text-2xl font-bold">{stats?.total_dryers || 0}</div>
             <p className="text-xs text-muted-foreground">Deployed units</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Dryers</CardTitle>
-            <Activity className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Active Dryers</CardTitle>
+            <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats?.active_dryers || 0}</div>
+            <div className="text-xl sm:text-2xl font-bold text-green-600">{stats?.active_dryers || 0}</div>
             <p className="text-xs text-muted-foreground">Currently operating</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Maintenance Needed</CardTitle>
-            <Wrench className="h-4 w-4 text-yellow-600" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Maintenance Needed</CardTitle>
+            <Wrench className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats?.maintenance_needed || 0}</div>
+            <div className="text-xl sm:text-2xl font-bold text-yellow-600">{stats?.maintenance_needed || 0}</div>
             <p className="text-xs text-muted-foreground">Due within 7 days</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Active Alerts</CardTitle>
+            <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats?.total_alerts || 0}</div>
+            <div className="text-xl sm:text-2xl font-bold text-red-600">{stats?.total_alerts || 0}</div>
             <p className="text-xs text-muted-foreground">
               {stats?.critical_alerts || 0} critical
             </p>
@@ -251,47 +194,47 @@ export function MainDashboard() {
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Offline Dryers</CardTitle>
-            <Activity className="h-4 w-4 text-red-600" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Offline Dryers</CardTitle>
+            <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.offline_dryers || 0}</div>
+            <div className="text-xl sm:text-2xl font-bold">{stats?.offline_dryers || 0}</div>
             <p className="text-xs text-muted-foreground">No communication &gt;1h</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Battery Level</CardTitle>
-            <Battery className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Avg Battery Level</CardTitle>
+            <Battery className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.avg_battery_level || 0}%</div>
+            <div className="text-xl sm:text-2xl font-bold">{stats?.avg_battery_level || 0}%</div>
             <p className="text-xs text-muted-foreground">Fleet average</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Chamber Temp</CardTitle>
-            <Thermometer className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Avg Chamber Temp</CardTitle>
+            <Thermometer className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.avg_chamber_temp || 0}°C</div>
+            <div className="text-xl sm:text-2xl font-bold">{stats?.avg_chamber_temp || 0}°C</div>
             <p className="text-xs text-muted-foreground">Fleet average</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Fleet Status</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Fleet Status</CardTitle>
+            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-xl sm:text-2xl font-bold text-green-600">
               {stats?.total_dryers ? Math.round((stats.active_dryers / stats.total_dryers) * 100) : 0}%
             </div>
             <p className="text-xs text-muted-foreground">Operational rate</p>
@@ -299,7 +242,7 @@ export function MainDashboard() {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2">
         {/* Recent Alerts */}
         <Card>
           <CardHeader>
@@ -314,9 +257,9 @@ export function MainDashboard() {
             ) : (
               <div className="space-y-3">
                 {recentAlerts.map((alert) => (
-                  <div key={alert.id} className="flex items-start justify-between border-b pb-3 last:border-0">
+                  <div key={alert.id} className="flex flex-col sm:flex-row items-start sm:justify-between border-b pb-3 last:border-0 gap-2">
                     <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant={getPriorityColor(alert.priority) as any}>
                           {alert.priority}
                         </Badge>
@@ -325,9 +268,9 @@ export function MainDashboard() {
                         </span>
                       </div>
                       <p className="text-sm font-medium">{alert.title}</p>
-                      <p className="text-xs text-muted-foreground">{alert.message}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">{alert.message}</p>
                     </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
                       {new Date(alert.triggered_at).toLocaleTimeString()}
                     </span>
                   </div>
@@ -350,14 +293,14 @@ export function MainDashboard() {
               <p className="text-sm text-muted-foreground">
                 {dryerLocations.length} dryers with GPS coordinates
               </p>
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              <div className="space-y-2 max-h-[250px] sm:max-h-[300px] overflow-y-auto">
                 {dryerLocations.slice(0, 10).map((dryer) => (
-                  <div key={dryer.id} className="flex items-center justify-between text-sm border-b pb-2">
-                    <div>
-                      <p className="font-medium">{dryer.dryer_id}</p>
-                      <p className="text-xs text-muted-foreground">{dryer.region_name}</p>
+                  <div key={dryer.id} className="flex items-center justify-between text-sm border-b pb-2 gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{dryer.dryer_id}</p>
+                      <p className="text-xs text-muted-foreground truncate">{dryer.region_name}</p>
                     </div>
-                    <Badge variant={dryer.status === 'active' ? 'default' : 'secondary'}>
+                    <Badge variant={dryer.status === 'active' ? 'default' : 'secondary'} className="shrink-0">
                       {dryer.status}
                     </Badge>
                   </div>
