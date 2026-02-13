@@ -1,6 +1,6 @@
 'use client'
 
-import { LayoutDashboard, Wind, AlertTriangle, Users, Settings, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Wind, AlertTriangle, Users, Settings, BarChart3, Download } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -21,8 +21,9 @@ const navigationItems = [
   { title: "Dryers", url: "/dashboard/dryers", icon: Wind, roles: ['super_admin', 'admin', 'regional_manager', 'field_technician'] },
   { title: "Alerts", url: "/dashboard/alerts", icon: AlertTriangle, roles: ['super_admin', 'admin', 'regional_manager', 'field_technician'] },
   { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3, roles: ['super_admin', 'admin', 'regional_manager'] },
-  { title: "Staff", url: "/dashboard/staff", icon: Users, roles: ['super_admin'] },
+  { title: "Data Export", url: "/dashboard/data", icon: Download, roles: ['super_admin', 'admin', 'regional_manager'] },
   { title: "Presets", url: "/dashboard/presets", icon: Settings, roles: ['super_admin', 'admin'] },
+  { title: "User Management", url: "/dashboard/staff", icon: Users, roles: ['super_admin'] }, // Only super_admin can manage users
 ];
 
 export function AppSidebar() {
@@ -31,7 +32,7 @@ export function AppSidebar() {
   const { role, isAuthenticated } = usePermissions();
 
   // Filter navigation items based on user role
-  const visibleItems = navigationItems.filter(item => 
+  const visibleItems = navigationItems.filter(item =>
     !item.roles || !role || item.roles.includes(role)
   );
 
